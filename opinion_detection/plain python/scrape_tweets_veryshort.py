@@ -42,16 +42,50 @@ def pre_process(text):
     return text
 
 # Przeglądamy 500 tweetów dla danego hasztagu
-pbar2 = tqdm(total=735)
+pbar2 = tqdm(total=140)
 pbar = tqdm(total=len(games))
 s = ' -'.join(types)
-for i in range(0,735,7):
+for i in range(0,140,7):
     until_temp = until - timedelta(i)
     since_temp = since - timedelta(i)
     pbar.reset()
     for game in games:
         for t in types:
-            scraper = sntwitter.TwitterSearchScraper(f'{game} {t} until:{until_temp} since:{since_temp}')
+            try:
+                scraper = sntwitter.TwitterSearchScraper(f'{game} {t} until:{until_temp} since:{since_temp}')
+                for i, tweet in enumerate(scraper.get_items()):
+                    try:
+                        data = [
+                            tweet.date,
+                            tweet.id,
+                            tweet.rawContent,
+                            tweet.user.username,
+                            tweet.likeCount,
+                            tweet.retweetCount,
+                            tweet.viewCount,
+                            tweet.lang,
+                            tweet.links,
+                            tweet.media,
+                            game,
+                            t
+                        ]
+                        if data[4] == data[5]:
+                            continue
+                        else:
+                            data[2] = pre_process(data[2])
+                            if data[2] == ' ' or data[2] == '':
+                                continue
+                            else:
+                                tweets.append(data)
+                                if i >= 500:
+                                    break
+                    except:
+                        continue
+            except:
+                break
+
+        scraper = sntwitter.TwitterSearchScraper(f'{game} until:{until_temp} since:{since_temp} -{s}')
+        try:
             for i, tweet in enumerate(scraper.get_items()):
                 try:
                     data = [
@@ -66,7 +100,7 @@ for i in range(0,735,7):
                         tweet.links,
                         tweet.media,
                         game,
-                        t
+                        "other"
                     ]
                     if data[4] == data[5]:
                         continue
@@ -79,39 +113,11 @@ for i in range(0,735,7):
                             if i >= 500:
                                 break
                 except:
-                    break
-
-        scraper = sntwitter.TwitterSearchScraper(f'{game} until:{until_temp} since:{since_temp} -{s}')
-        for i, tweet in enumerate(scraper.get_items()):
-            try:
-                data = [
-                    tweet.date,
-                    tweet.id,
-                    tweet.rawContent,
-                    tweet.user.username,
-                    tweet.likeCount,
-                    tweet.retweetCount,
-                    tweet.viewCount,
-                    tweet.lang,
-                    tweet.links,
-                    tweet.media,
-                    game,
-                    "other"
-                ]
-                if data[4] == data[5]:
                     continue
-                else:
-                    data[2] = pre_process(data[2])
-                    if data[2] == ' ' or data[2] == '':
-                        continue
-                    else:
-                        tweets.append(data)
-                        if i >= 500:
-                            break
-            except:
-                break
+        except:
+            break
         pbar.update(1)
-    pbar2.update(2)
+    pbar2.update(7)
 
 a=pd.DataFrame(tweets, columns=['date', 'id', 'content', 'username','like_count','retweet_count', 'view_count', 'language', 'links','media','game','type'])
 
