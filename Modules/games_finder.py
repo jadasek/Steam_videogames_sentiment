@@ -1,11 +1,14 @@
 import requests
 import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
+
 from difflib import get_close_matches
 
 if len(sys.argv) > 1:
     game_name = sys.argv[1]
 else:
-    game_name = ""
+    game_name = "test"
 
 def search_steam(game_name):
     url = "http://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json"

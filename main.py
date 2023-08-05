@@ -21,22 +21,33 @@ class App:
         self.step1_frame = ttk.Frame(self.master)
         self.step1_frame.pack()
         ttk.Label(self.step1_frame, text="Krok 1: Wprowadź nazwę gry z platformy Steam").pack()
-        self.entry1 = ttk.Entry(self.step1_frame)
+        self.entry1 = ttk.Entry(self.step1_frame, width=98)
         self.entry1.insert(0, self.game_name)
         self.entry1.pack()
         ttk.Button(self.step1_frame, text="Wyszukaj", command=self.search).pack()
         ttk.Button(self.step1_frame, text="Otwórz nowe okno", command=self.open_new_window).pack(pady=10)
-        self.listbox = tk.Listbox(self.step1_frame, height=0, width=0)
-        self.listbox.pack()
-        self.listbox.bind("<Double-Button-1>", self.open_link)
+
+        # Create a Treeview widget to display the data in a table format
+        self.treeview = ttk.Treeview(self.step1_frame, columns=("Nazwa gry", "ID gry", "Link do strony gry na Steam"), show="headings")
+        self.treeview.column('Link do strony gry na Steam',width=400)
+        self.treeview.column('ID gry',width=50)
+        self.treeview.column('Nazwa gry',width=150)
+        self.treeview.bind("<Double-Button-1>", self.open_link)
+        self.treeview.heading("Nazwa gry", text="Nazwa gry")
+        self.treeview.heading("ID gry", text="ID gry")
+        self.treeview.heading("Link do strony gry na Steam", text="Link do strony gry na Steam")
+        self.treeview.pack()
+
         ttk.Separator(self.step1_frame, orient='horizontal').pack(fill='x', pady=10)
         ttk.Label(self.step1_frame, text="Wpisz nazwę gry, a program spróbuje znaleźć ją w sklepie Steam. Następnie wybierz ze zwróconych wartości te grę, której szukasz. Możesz kliknąć dwukrotnie na rekord, a zostaniesz przeniesiony na stronę produktu.").pack()
         ttk.Label(self.step1_frame, text="Jeżeli gra nie wyświetla się na liście kliknij przycisk 'Gra nie wyświetla się na liście'").pack()
         ttk.Button(self.step1_frame, text="Dalej", command=self.next_step).pack()
 
+
     def open_new_window(self):
         # Tworzenie nowego okna
         new_window = tk.Toplevel(self.master)
+        new_window.grab_set()
 
         ttk.Label(new_window, text="Wprowadź id gry:").pack()
         # Dodanie pola do wprowadzenia wartości
@@ -60,23 +71,31 @@ class App:
         self.next_step()
 
     def search(self):
-        # Clear the Listbox
-        self.listbox.delete(0, tk.END)
-
+        for row in self.treeview.get_children():
+            self.treeview.delete(row)
         # Run the Python code in a separate file and display the results in the Listbox
         import subprocess
         game_name = self.entry1.get()
-        result = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\import requests.py", game_name])
-        result = result.decode("utf-8").strip().split("\n")
-        for item in result:
-            self.listbox.insert(tk.END, item)
+        results = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\Modules\games_finder.py", game_name])
+        results = results.decode("utf-8").strip().split("\n")
+        print(results)
+        for result in results:
+            game_name, game_id, game_link = result.split(", ")
+            game_name = game_name.split(": ")[1]
+            game_id = game_id.split(": ")[1]
+            game_link = game_link.split(": ")[1]
+            self.treeview.insert("", "end", values=(game_name, game_id, game_link))
 
     def open_link(self, event):
-        selection = self.listbox.curselection()
+        # Get the selected item in the Treeview widget
+        selection = self.treeview.selection()
         if selection:
-            link = self.listbox.get(selection[0]).split()[-1]
-            if link.startswith("http"):
-                webbrowser.open(link)
+            # Get the game link from the selected item
+            item = self.treeview.item(selection[0])
+            game_link = item["values"][2]
+            if game_link.startswith("http"):
+                webbrowser.open(game_link)
+
 
     def create_step2(self):
         self.step2_frame = ttk.Frame(self.master)
