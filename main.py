@@ -4,14 +4,16 @@ from ttkbootstrap import Style
 import webbrowser
 import tkinter.messagebox
 
-
 class App:
     def __init__(self, master):
+        self.languages_codes = {'angielski': ('en', 'english'), 'arabski': ('ar', 'arabic'), 'bułgarski': ('bg', 'bulgarian'), 'chiński uproszczony': ('zh-CN', 'schinese'), 'chiński tradycyjny': ('zh-TW', 'tchinese'), 'czeski': ('cs', 'czech'),'duński': ('da', 'danish'),'niderlandzki': ('nl', 'dutch'),'fiński': ('fi', 'finnish'),'francuski': ('fr', 'french'),'niemiecki': ('de', 'german'),'grecki': ('el', 'greek'),'węgierski': ('hu', 'hungarian'),'włoski': ('it', 'italian'),'japoński': ('ja', 'japanese'),'koreański': ('ko', 'koreana'),'norweski': ('no', 'norwegian'),'polski': ('pl', 'polish'),'portugalski': ('pt', 'portuguese'),'portugalski brazylijski': ('pt-BR', 'brazilian'),'rumuński': ('ro', 'romanian'),'rosyjski': ('ru', 'russian'),'hiszpański': ('es', 'spanish'),'hiszpański latynoamerykański': ('es-419', 'latam'),'szwedzki': ('sv', 'swedish'),'tajski': ('th', 'thai'),'turecki': ('tr', 'turkish'),'ukraiński': ('uk', 'ukrainian'),'wietnamski': ('vn','vietnamese')}
+
         self.master = master
         self.step = 1
         self.game_name = ""
         self.game_id = 0
         self.review_num = 0
+        self.selected_languages = []
         self.tags = ""
         self.summarize = False
         self.sentiment = False
@@ -51,8 +53,8 @@ class App:
 
         ttk.Label(new_window, text="Wprowadź id gry:").pack()
         # Dodanie pola do wprowadzenia wartości
-        value_entry = ttk.Entry(new_window)
-        value_entry.pack()
+        self.value_entry = ttk.Entry(new_window)
+        self.value_entry.pack()
         
         # Dodanie przycisku do zamknięcia okna i przejścia do następnego kroku
         ttk.Button(new_window, text="Zamknij i przejdź dalej", command=lambda: self.close_new_window(new_window)).pack()
@@ -61,9 +63,15 @@ class App:
     def close_new_window(self, new_window):
         # Pobranie wartości z pola Entry w nowym oknie
         value = new_window.winfo_children()[1].get()
-        
-        self.new_window_value = value
-        self.game_id = int(value)
+        if not value:
+            tk.messagebox.showerror("Błąd", "Pole nie może być puste")
+            return
+        try:
+            self.new_window_value = value
+            self.game_id = int(value)
+        except ValueError:
+            tk.messagebox.showerror("Błąd", "Upewnij się, że wpisujesz tylko liczby")
+            return
         # Zamknięcie nowego okna
         new_window.destroy()
         
@@ -78,7 +86,6 @@ class App:
         game_name = self.entry1.get()
         results = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\Modules\games_finder.py", game_name])
         results = results.decode("utf-8").strip().split("\n")
-        print(results)
         for result in results:
             game_name, game_id, game_link = result.split(", ")
             game_name = game_name.split(": ")[1]
@@ -100,14 +107,20 @@ class App:
     def create_step2(self):
         self.step2_frame = ttk.Frame(self.master)
         self.step2_frame.pack()
-        ttk.Label(self.step2_frame, text="Krok 2: Wprowadź liczbę z zakresu od 1 do liczby recenzji jakie są dostępne dla gry podanej w kroku 1").pack()
-        self.entry2 = ttk.Spinbox(self.step2_frame, from_=1, to=100) # zakładając, że maksymalna liczba recenzji to 100
-        if self.review_num != 0:
-            self.entry2.delete(0, "end")
-            self.entry2.insert(0, str(self.review_num)) # ustawienie wartości pola Entry na podstawie zmiennej przechowującej informację wprowadzoną przez użytkownika
-        self.entry2.pack()
-        ttk.Button(self.step2_frame, text="Dalej", command=self.next_step).pack()
-        ttk.Button(self.step2_frame, text="Cofnij", command=self.prev_step).pack()
+        ttk.Label(self.step2_frame, text="Krok 2: Wybierz języki").grid(row=0, column=0, columnspan=3)
+        options = self.languages_codes.keys()
+        options = sorted(options)
+        
+        self.checkboxes = {}
+        num_columns = 3
+        num_rows = len(options)//num_columns+1
+        for i, option in enumerate(options):
+            self.checkboxes[option] = tk.BooleanVar()
+            checkbutton = tk.Checkbutton(self.step2_frame, text=option, variable=self.checkboxes[option])
+            checkbutton.grid(row=(i)%num_rows+1, column=(i)//num_rows, sticky="w")
+
+        ttk.Button(self.step2_frame, text="Dalej", command=self.next_step).grid(row=len(options)//3+2, column=1)
+        ttk.Button(self.step2_frame, text="Cofnij", command=self.prev_step).grid(row=len(options)//3+3, column=1)
 
     def create_step3(self):
         self.step3_frame = ttk.Frame(self.master)
@@ -132,31 +145,31 @@ class App:
 
     def next_step(self):
         if self.step == 1:
-            # Sprawdzenie, czy użytkownik wprowadził wartość w nowym oknie
+            # Check if the user entered a value in the new window
             if not hasattr(self, 'new_window_value'):
                 self.game_name = self.entry1.get()
-                self.selection = self.listbox.curselection()
+                self.selection = self.treeview.selection()
                 if not self.game_name:
                     tk.messagebox.showerror("Błąd", "Musisz wprowadzić nazwę gry")
                     return
                 if not self.selection:
                     tk.messagebox.showerror("Błąd", "Musisz wybrać grę z listy")
                     return
-            print(self.listbox.get(self.selection[0])) #Wartość jaką użytkownik wybrał w liście z kroku 1
-            print(self.game_id) #Wartość jaką użytkownik wybrał w liście z kroku 1
+                item = self.treeview.item(self.selection[0])
+                self.game_id = item['values'][1]
+            print(self.game_id)
             self.step1_frame.pack_forget()
             self.create_step2()
             self.step += 1
         elif self.step == 2:
             try:
-                review_num = int(self.entry2.get())
-                if review_num < 1 or review_num > 100: # zakładając, że maksymalna liczba recenzji to 100
+                self.selected_languages = [option for option, var in self.checkboxes.items() if var.get()]
+                if not self.selected_languages:
                     raise ValueError
-                else:
-                    self.review_num = review_num
             except ValueError:
-                tk.messagebox.showerror("Błąd", "Musisz wprowadzić poprawną liczbę recenzji")
+                tk.messagebox.showerror("Błąd", "Musisz wybrać przynajmniej jeden język")
                 return
+            print(self.selected_languages)    
             self.step2_frame.pack_forget()
             self.create_step3()
             self.step += 1
@@ -195,6 +208,7 @@ class App:
             self.step -= 1
 
 root = tk.Tk()
+root.geometry("1200x400")
 style = Style(theme="darkly")
 app = App(root)
 root.mainloop()
