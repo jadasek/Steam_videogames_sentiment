@@ -139,53 +139,49 @@ class App:
         languages = ','.join([self.languages_codes[language][1] for language in self.selected_languages])
         results = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\Modules\review_counter.py", str(self.game_id), languages])
         results = results.decode("utf-8").strip().split("\n")
-        print(results)
         keys = eval(results[0].strip())
         values = eval(str(results[1]))
-        print(keys)
-        print(values)
         lang_num = dict(zip(keys, values))
-        print(lang_num)
+
 
         self.language_frames = []
         self.entries = {}
         self.current_language = 0
         for language, max_reviews in lang_num.items():
-            custom_scale = 0
+            custom_scale = tk.IntVar()
+            custom_scale.set(0)
             frame = ttk.Frame(self.step3_frame)
-            ttk.Label(frame, text=f"Dla języka {find_key_by_value(self.languages_codes, language)}:").grid(row=0,column=0, columnspan=4)
-            if max_reviews > 10:
-                ttk.Scale(frame, from_=1, to=max_reviews, orient='horizontal', variable=custom_scale, length=300).grid(row=1,column=0,columnspan=1,pady=10)
-                ttk.Label(frame, text=f"{custom_scale}").grid(row=1,column=1, columnspan=4)
-                ttk.Radiobutton(frame, text="Wprowadź własną liczbę opinii", value=-1).grid(row=5,column=0,columnspan=4,pady=10,padx=5)
+            if max_reviews > 0:
+                ttk.Label(frame, text=f"Dla języka {find_key_by_value(self.languages_codes, language)}:").grid(row=0,column=0, columnspan=4)
+                tk.Scale(frame, from_=1, to=max_reviews, orient='horizontal', variable=custom_scale, length=400, resolution= 1).grid(row=1,column=1,columnspan=1,pady=10, padx=10)
+                custom_entry = ttk.Entry(frame, textvariable=custom_scale)
+                custom_entry.grid(row=1,column=3,columnspan=1,pady=10)
+                custom_entry.insert(0, 100 if max_reviews > 100 else max_reviews)
+                self.entries[language] = custom_entry
+                self.language_frames.append(frame)
             else:
-                ttk.Radiobutton(frame, text=f"Pobierz wszystkie opinie dla danego języka ({max_reviews})", value=-1).grid(row=3,column=0,columnspan=4,pady=10)
-
-            custom_entry = ttk.Entry(frame)
-            custom_entry.grid(row=5,column=5,columnspan=4,pady=10)
-            custom_entry.insert(0, 100 if max_reviews > 100 else max_reviews)
-            self.entries[language] = custom_entry
-            self.language_frames.append(frame)
-
+                ttk.Label(frame, text=f"Dla języka {find_key_by_value(self.languages_codes, language)} nie ma żadnych opinii").grid(row=0,column=0, columnspan=4)
+                self.entries[language] = 0
+                self.language_frames.append(frame)
         self.show_language_frame(self.current_language)
 
     def show_language_frame(self, index):
         for i, frame in enumerate(self.language_frames):
             if i == index:
-                print(self.current_language)
-                print(self.entries['english'].get())
-                if self.current_language == 0 | len(self.language_frames) == 1:
-                    ttk.Button(frame, text="Następny język", command=self.next_language).grid(row=2,column=6,columnspan=1)
-                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=7,column=1,columnspan=1)
+                if len(self.language_frames) == 1:
+                    ttk.Button(frame, text="Następny krok", command=self.next_step).grid(row=2,column=2,columnspan=1)
+                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=2,column=1,columnspan=1)
+                elif self.current_language == 0:
+                    ttk.Button(frame, text="Następny język", command=self.next_language).grid(row=2,column=2,columnspan=1)
+                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=2,column=1,columnspan=1)
                 elif self.current_language != len(self.language_frames)-1:
-                    ttk.Button(frame, text="Następny język", command=self.next_language).grid(row=2,column=6,columnspan=2)
-                    ttk.Button(frame, text="Poprzedni język", command=self.prev_language).grid(row=3,column=6,columnspan=2)
-                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=7,column=1,columnspan=1)
+                    ttk.Button(frame, text="Następny język", command=self.next_language).grid(row=2,column=2,columnspan=1)
+                    ttk.Button(frame, text="Poprzedni język", command=self.prev_language).grid(row=2,column=3,columnspan=1)
+                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=2,column=1,columnspan=1)
                 else:
-                    print(self.entries)
-                    ttk.Button(frame, text="Poprzedni język", command=self.prev_language).grid(row=6,column=0,columnspan=1)
-                    ttk.Button(frame, text="Następny krok", command=self.next_step).grid(row=7,column=2,columnspan=1)
-                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=7,column=1,columnspan=1)
+                    ttk.Button(frame, text="Poprzedni język", command=self.prev_language).grid(row=2,column=3,columnspan=1)
+                    ttk.Button(frame, text="Następny krok", command=self.next_step).grid(row=2,column=2,columnspan=1)
+                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=2,column=1,columnspan=1)
                 frame.grid()
             else:
                 frame.grid_remove()
@@ -246,6 +242,11 @@ class App:
             self.create_step3()
             self.step += 1
         elif self.step == 3:
+            for i in self.entries.values():
+                try:
+                    print(i.get())
+                except:
+                    pass
             tags = self.entry3.get()
             if not tags:
                 tk.messagebox.showerror("Błąd", "Musisz wprowadzić tagi")
