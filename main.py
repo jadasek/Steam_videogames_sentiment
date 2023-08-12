@@ -3,6 +3,13 @@ from tkinter import ttk
 from ttkbootstrap import Style
 import webbrowser
 import tkinter.messagebox
+import subprocess
+
+def find_key_by_value(dictionary, value):
+    for key, val in dictionary.items():
+        if value in val:
+            return key
+    return None
 
 class App:
     def __init__(self, master):
@@ -22,12 +29,13 @@ class App:
     def create_step1(self):
         self.step1_frame = ttk.Frame(self.master)
         self.step1_frame.pack()
+        self.step1_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         ttk.Label(self.step1_frame, text="Krok 1: Wprowadź nazwę gry z platformy Steam").pack()
         self.entry1 = ttk.Entry(self.step1_frame, width=98)
         self.entry1.insert(0, self.game_name)
         self.entry1.pack()
         ttk.Button(self.step1_frame, text="Wyszukaj", command=self.search).pack()
-        ttk.Button(self.step1_frame, text="Otwórz nowe okno", command=self.open_new_window).pack(pady=10)
+        ttk.Button(self.step1_frame, text="Gra nie wyświetla się na liście", command=self.open_new_window).pack(pady=10)
 
         # Create a Treeview widget to display the data in a table format
         self.treeview = ttk.Treeview(self.step1_frame, columns=("Nazwa gry", "ID gry", "Link do strony gry na Steam"), show="headings")
@@ -50,6 +58,7 @@ class App:
         # Tworzenie nowego okna
         new_window = tk.Toplevel(self.master)
         new_window.grab_set()
+        new_window.minsize(width=250, height=120)
 
         ttk.Label(new_window, text="Wprowadź id gry:").pack()
         # Dodanie pola do wprowadzenia wartości
@@ -82,7 +91,6 @@ class App:
         for row in self.treeview.get_children():
             self.treeview.delete(row)
         # Run the Python code in a separate file and display the results in the Listbox
-        import subprocess
         game_name = self.entry1.get()
         results = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\Modules\games_finder.py", game_name])
         results = results.decode("utf-8").strip().split("\n")
@@ -107,6 +115,7 @@ class App:
     def create_step2(self):
         self.step2_frame = ttk.Frame(self.master)
         self.step2_frame.pack()
+        self.step2_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         ttk.Label(self.step2_frame, text="Krok 2: Wybierz języki").grid(row=0, column=0, columnspan=3)
         options = self.languages_codes.keys()
         options = sorted(options)
@@ -125,12 +134,75 @@ class App:
     def create_step3(self):
         self.step3_frame = ttk.Frame(self.master)
         self.step3_frame.pack()
-        ttk.Label(self.step3_frame, text="Krok 3: Wprowadź tagi jakie potem będą wyszukiwane w tekście przy użyciu one-hot encodingu").pack()
-        self.entry3 = ttk.Entry(self.step3_frame)
-        self.entry3.insert(0, self.tags) # ustawienie wartości pola Entry na podstawie zmiennej przechowującej informację wprowadzoną przez użytkownika
-        self.entry3.pack()
-        ttk.Button(self.step3_frame, text="Dalej", command=self.next_step).pack()
-        ttk.Button(self.step3_frame, text="Cofnij", command=self.prev_step).pack()
+        self.step3_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        languages = ','.join([self.languages_codes[language][1] for language in self.selected_languages])
+        results = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\Modules\review_counter.py", str(self.game_id), languages])
+        results = results.decode("utf-8").strip().split("\n")
+        print(results)
+        keys = eval(results[0].strip())
+        values = eval(str(results[1]))
+        print(keys)
+        print(values)
+        lang_num = dict(zip(keys, values))
+        print(lang_num)
+
+        self.language_frames = []
+        self.entries = {}
+        self.current_language = 0
+        for language, max_reviews in lang_num.items():
+            custom_scale = 0
+            frame = ttk.Frame(self.step3_frame)
+            ttk.Label(frame, text=f"Dla języka {find_key_by_value(self.languages_codes, language)}:").grid(row=0,column=0, columnspan=4)
+            if max_reviews > 10:
+                ttk.Scale(frame, from_=1, to=max_reviews, orient='horizontal', variable=custom_scale, length=300).grid(row=1,column=0,columnspan=1,pady=10)
+                ttk.Label(frame, text=f"{custom_scale}").grid(row=1,column=1, columnspan=4)
+                ttk.Radiobutton(frame, text="Wprowadź własną liczbę opinii", value=-1).grid(row=5,column=0,columnspan=4,pady=10,padx=5)
+            else:
+                ttk.Radiobutton(frame, text=f"Pobierz wszystkie opinie dla danego języka ({max_reviews})", value=-1).grid(row=3,column=0,columnspan=4,pady=10)
+
+            custom_entry = ttk.Entry(frame)
+            custom_entry.grid(row=5,column=5,columnspan=4,pady=10)
+            custom_entry.insert(0, 100 if max_reviews > 100 else max_reviews)
+            self.entries[language] = custom_entry
+            self.language_frames.append(frame)
+
+        self.show_language_frame(self.current_language)
+
+    def show_language_frame(self, index):
+        for i, frame in enumerate(self.language_frames):
+            if i == index:
+                print(self.current_language)
+                print(self.entries['english'].get())
+                if self.current_language == 0 | len(self.language_frames) == 1:
+                    ttk.Button(frame, text="Następny język", command=self.next_language).grid(row=2,column=6,columnspan=1)
+                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=7,column=1,columnspan=1)
+                elif self.current_language != len(self.language_frames)-1:
+                    ttk.Button(frame, text="Następny język", command=self.next_language).grid(row=2,column=6,columnspan=2)
+                    ttk.Button(frame, text="Poprzedni język", command=self.prev_language).grid(row=3,column=6,columnspan=2)
+                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=7,column=1,columnspan=1)
+                else:
+                    print(self.entries)
+                    ttk.Button(frame, text="Poprzedni język", command=self.prev_language).grid(row=6,column=0,columnspan=1)
+                    ttk.Button(frame, text="Następny krok", command=self.next_step).grid(row=7,column=2,columnspan=1)
+                    ttk.Button(frame, text="Wróć do poprzedniego kroku", command=self.prev_step).grid(row=7,column=1,columnspan=1)
+                frame.grid()
+            else:
+                frame.grid_remove()
+
+    def next_language(self):
+        if self.current_language != len(self.language_frames):
+            self.current_language += 1
+            self.show_language_frame(self.current_language)
+        else:
+            tk.messagebox.showerror("Błąd", "Nie ma już więcej języków")
+
+    def prev_language(self):
+        if self.current_language != 0:
+            self.current_language -= 1
+            self.show_language_frame(self.current_language)
+        else:
+            tk.messagebox.showerror("Błąd", "Jesteś na początku")
 
     def create_step4(self):
         self.step4_frame = ttk.Frame(self.master)
@@ -158,7 +230,7 @@ class App:
                 item = self.treeview.item(self.selection[0])
                 self.game_id = item['values'][1]
             print(self.game_id)
-            self.step1_frame.pack_forget()
+            self.step1_frame.destroy()
             self.create_step2()
             self.step += 1
         elif self.step == 2:
@@ -170,7 +242,7 @@ class App:
                 tk.messagebox.showerror("Błąd", "Musisz wybrać przynajmniej jeden język")
                 return
             print(self.selected_languages)    
-            self.step2_frame.pack_forget()
+            self.step2_frame.destroy()
             self.create_step3()
             self.step += 1
         elif self.step == 3:
@@ -195,20 +267,20 @@ class App:
 
     def prev_step(self):
         if self.step == 2:
-            self.step2_frame.pack_forget()
+            self.step2_frame.destroy()
             self.create_step1()
             self.step -= 1
         elif self.step == 3:
-            self.step3_frame.pack_forget()
+            self.step3_frame.destroy()
             self.create_step2()
             self.step -= 1
         elif self.step == 4:
-            self.step4_frame.pack_forget()
+            self.step4_frame.destroy()
             self.create_step3()
             self.step -= 1
 
 root = tk.Tk()
-root.geometry("1200x400")
+root.minsize(width=1280, height=720)
 style = Style(theme="darkly")
 app = App(root)
 root.mainloop()
