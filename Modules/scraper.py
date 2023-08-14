@@ -2,13 +2,15 @@ import requests
 from urllib.parse import quote
 import pandas as pd
 from datetime import datetime
+from tkinter import ttk
 import os
 
-def get_steam_reviews(appid, language="english", filter="recent"):
+def get_steam_reviews(file_path, callback, total, appid, language, amount=100, filter="recent"):
     cursor = "*"
     previous_cursor = None
     reviews_data = []
-    while cursor and cursor != previous_cursor:
+    amount_temp = 0
+    while (cursor and cursor != previous_cursor) and (amount_temp < int(amount)):
         encoded_cursor = quote(cursor)
         url = f"https://store.steampowered.com/appreviews/{appid}?json=1&language={language}&cursor={encoded_cursor}&filter={filter}"
         response = requests.get(url)
@@ -28,10 +30,8 @@ def get_steam_reviews(appid, language="english", filter="recent"):
                 'playtime_at_review': review['author']['playtime_at_review'],
             }
             reviews_data.append(review_data)
+        amount_temp += 20
+        callback((20/total)*100)
     reviews_df = pd.DataFrame(reviews_data)
-    desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
-    file_path = os.path.join(desktop_path, f"{appid}.xlsx")
-    reviews_df.to_excel(file_path, sheet_name=appid, index=False)
-
-appid = input("Wpisz ID gry: ")
-get_steam_reviews(appid)
+    print(f'{file_path}/{language}.xlsx')
+    reviews_df.to_excel(f'{file_path}/{language}.xlsx', sheet_name='data', index=False)

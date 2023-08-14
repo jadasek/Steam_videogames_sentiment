@@ -2,8 +2,12 @@ import tkinter as tk
 from tkinter import ttk
 from ttkbootstrap import Style
 import webbrowser
-import tkinter.messagebox
 import subprocess
+import os
+import pandas as pd
+import threading
+from tkinter import filedialog
+from queue import Queue
 
 def find_key_by_value(dictionary, value):
     for key, val in dictionary.items():
@@ -13,17 +17,19 @@ def find_key_by_value(dictionary, value):
 
 class App:
     def __init__(self, master):
-        self.languages_codes = {'angielski': ('en', 'english'), 'arabski': ('ar', 'arabic'), 'bułgarski': ('bg', 'bulgarian'), 'chiński uproszczony': ('zh-CN', 'schinese'), 'chiński tradycyjny': ('zh-TW', 'tchinese'), 'czeski': ('cs', 'czech'),'duński': ('da', 'danish'),'niderlandzki': ('nl', 'dutch'),'fiński': ('fi', 'finnish'),'francuski': ('fr', 'french'),'niemiecki': ('de', 'german'),'grecki': ('el', 'greek'),'węgierski': ('hu', 'hungarian'),'włoski': ('it', 'italian'),'japoński': ('ja', 'japanese'),'koreański': ('ko', 'koreana'),'norweski': ('no', 'norwegian'),'polski': ('pl', 'polish'),'portugalski': ('pt', 'portuguese'),'portugalski brazylijski': ('pt-BR', 'brazilian'),'rumuński': ('ro', 'romanian'),'rosyjski': ('ru', 'russian'),'hiszpański': ('es', 'spanish'),'hiszpański latynoamerykański': ('es-419', 'latam'),'szwedzki': ('sv', 'swedish'),'tajski': ('th', 'thai'),'turecki': ('tr', 'turkish'),'ukraiński': ('uk', 'ukrainian'),'wietnamski': ('vn','vietnamese')}
+        self.languages_codes = {'angielski': ('en', 'english'), 'arabski': ('ar', 'arabic'), 'bułgarski': ('bg', 'bulgarian'), 'chiński uproszczony': ('zh-CN', 'schinese'), 'chiński tradycyjny': ('zh-TW', 'tchinese'), 'czeski': ('cs', 'czech'),'duński': ('da', 'danish'),'niderlandzki': ('nl', 'dutch'),'fiński': ('fi', 'finnish'),'francuski': ('fr', 'french'),'niemiecki': ('de', 'german'),'grecki': ('el', 'greek'),'węgierski': ('hu', 'hungarian'),'włoski': ('it', 'italian'),'japoński': ('ja', 'japanese'),'koreański': ('ko', 'koreana'),'norweski': ('no', 'norwegian'),'polski': ('pl', 'polish'),'portugalski': ('pt', 'portuguese'),'rumuński': ('ro', 'romanian'),'rosyjski': ('ru', 'russian'),'hiszpański': ('es', 'spanish'),'hiszpański latynoamerykański': ('es-419', 'latam'),'szwedzki': ('sv', 'swedish'),'tajski': ('th', 'thai'),'turecki': ('tr', 'turkish'),'ukraiński': ('uk', 'ukrainian'),'wietnamski': ('vn','vietnamese')}
 
         self.master = master
+        self.threads_done = 0
         self.step = 1
+        self.entries = {}
         self.game_name = ""
         self.game_id = 0
+        self.tags = tk.StringVar()
         self.review_num = 0
         self.selected_languages = []
+        self.tagging = False
         self.tags = ""
-        self.summarize = False
-        self.sentiment = False
         self.create_step1()
 
     def create_step1(self):
@@ -145,18 +151,16 @@ class App:
 
 
         self.language_frames = []
-        self.entries = {}
         self.current_language = 0
         for language, max_reviews in lang_num.items():
             custom_scale = tk.IntVar()
-            custom_scale.set(0)
+            custom_scale.set(100 if max_reviews > 100 else max_reviews)
             frame = ttk.Frame(self.step3_frame)
             if max_reviews > 0:
                 ttk.Label(frame, text=f"Dla języka {find_key_by_value(self.languages_codes, language)}:").grid(row=0,column=0, columnspan=4)
                 tk.Scale(frame, from_=1, to=max_reviews, orient='horizontal', variable=custom_scale, length=400, resolution= 1).grid(row=1,column=1,columnspan=1,pady=10, padx=10)
                 custom_entry = ttk.Entry(frame, textvariable=custom_scale)
                 custom_entry.grid(row=1,column=3,columnspan=1,pady=10)
-                custom_entry.insert(0, 100 if max_reviews > 100 else max_reviews)
                 self.entries[language] = custom_entry
                 self.language_frames.append(frame)
             else:
@@ -203,13 +207,141 @@ class App:
     def create_step4(self):
         self.step4_frame = ttk.Frame(self.master)
         self.step4_frame.pack()
-        ttk.Label(self.step4_frame, text="Wybierz opcje:").pack()
+        self.step4_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.is_tagging = tk.BooleanVar()
+
+        ttk.Checkbutton(self.step4_frame, text="Chcę skorzystać z wyszukiwania po tagach:", variable=self.is_tagging).grid(column=0, row=0)
+        self.tags_text = tk.Text(self.step4_frame, width=80, height=10, wrap='word')
+        self.tags_text.grid(ipady=3, row=1, column=0, rowspan=4)
+
+        ttk.Button(self.step4_frame, text="Dalej", command=self.next_step).grid(row=5,column=1)
+        ttk.Button(self.step4_frame, text="Cofnij", command=self.prev_step).grid(row=5,column=0)
+
+    def create_step5(self):
+        self.step5_frame = ttk.Frame(self.master)
+        self.step5_frame.pack()
+        self.step5_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        ttk.Label(self.step5_frame, text="Wybierz opcje dodatkowe:").pack()
         self.summarize_var = tk.BooleanVar()
         self.sentiment_var = tk.BooleanVar()
-        ttk.Checkbutton(self.step4_frame, text="Użyj streszczania", variable=self.summarize_var).pack()
-        ttk.Checkbutton(self.step4_frame, text="Sprawdź sentyment", variable=self.sentiment_var).pack()
-        ttk.Button(self.step4_frame, text="Dalej", command=self.next_step).pack()
-        ttk.Button(self.step4_frame, text="Cofnij", command=self.prev_step).pack()
+        self.spam_filter = tk.BooleanVar()
+        ttk.Checkbutton(self.step5_frame, text="Użyj podstawowego filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame, text="Użyj zaawansowanego filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame, text="Użyj streszczania opinii dłuższych niż 100 znaków", variable=self.summarize_var).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame, text="Sprawdź sentyment", variable=self.sentiment_var).pack(pady=5)
+
+        ttk.Button(self.step5_frame, text="Dalej", command=self.next_step).pack()
+        ttk.Button(self.step5_frame, text="Cofnij", command=self.prev_step).pack()
+
+
+    def create_step6(self):
+        self.step6_frame = ttk.Frame(self.master)
+        self.step6_frame.pack()
+        self.step6_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        from Modules.scraper import get_steam_reviews
+        ttk.Label(self.step6_frame, text='Trwa pobieranie opinii').grid(column=0,row=0,columnspan=2)
+        pb = ttk.Progressbar(self.step6_frame, orient="horizontal", mode="determinate", length=280)
+        pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+        total = sum(int(value) for value in self.entries.values())
+
+        def update_progressbar(value):
+            pb['value'] += value
+            pb.update_idletasks()
+
+        self.file_path = filedialog.askdirectory(title="Select folder")
+        
+        def on_threads_finished(file_path):
+            # This function will be called after all threads have finished
+            # Add your code here to process the files
+            files = [f for f in os.listdir(file_path) if f.endswith('.xlsx')]
+            data = []
+            print(files)
+
+            for file in files:
+                file_path2 = f'{file_path}/{file}'
+                print(file_path2)
+                df = pd.read_excel(file_path2)
+                data.append(df)
+                os.remove(file_path2)
+
+            # Concatenate all data into a single DataFrame
+            combined_data = pd.concat(data)
+            # Write the combined data to the output file
+            combined_data.to_excel(f'{file_path}/output.xlsx', index=False)
+            self.next_step()
+
+
+        if self.file_path:
+            print(self.file_path)
+            threads =[]
+            for i, j in self.entries.items():
+                t = threading.Thread(target=get_steam_reviews, args=(self.file_path, update_progressbar, total, self.game_id, i, j))
+                t.start()
+                threads.append(t)
+            
+            # Wait for all threads to finish without blocking the main thread
+            def check_threads():
+                if all(not t.is_alive() for t in threads) & (self.threads_done == 0):
+                    # All threads have finished
+                    self.threads_done = 1
+                    on_threads_finished(self.file_path)
+                else:
+                    # Not all threads have finished, check again after some time
+                    self.master.after(1000, check_threads)
+
+            # Start checking if all threads have finished
+            check_threads()
+
+    def create_step7(self):
+        if any(x != 'english' for x in self.entries.keys()):
+            self.threads_done = 0
+            self.step7_frame = ttk.Frame(self.master)
+            self.step7_frame.pack()
+            self.step7_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+            from Modules.translator import translate_content
+            file_location = f'{self.file_path}/output.xlsx'
+            ttk.Label(self.step7_frame, text='Trwa tłumaczenie opinii').grid(column=0,row=0,columnspan=2)
+            pb = ttk.Progressbar(self.step7_frame, orient="horizontal", mode="determinate", length=280)
+            pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+
+            def update_progressbar(value):
+                pb['value'] += value
+                pb.update_idletasks()
+            df = pd.read_excel(file_location)
+
+            num_to_translate = len(df[(df['language'] != 'english') & (df['content'].str.len() >= 3)])
+
+            queue = Queue()
+            threads =[]
+
+            for i in range(0,num_to_translate,200):
+                temp = df.iloc[i:i+200]
+                t = threading.Thread(target=translate_content, args=(temp, update_progressbar, i, self.file_path,num_to_translate,queue))
+                t.start()
+                threads.append(t)
+
+            def check_threads():
+                if all(not t.is_alive() for t in threads) & (self.threads_done == 0):
+                    self.threads_done = 1
+                    result = pd.concat(list(queue.queue))
+                    result.to_excel(f'{self.file_path}/output.xlsx')
+                    self.next_step()
+                else:
+                    # Not all threads have finished, check again after some time
+                    self.master.after(1000, check_threads)
+            
+            check_threads()
+        else:
+            self.next_step()
+    
+    def create_step8(self):
+        self.step8_frame = ttk.Frame(self.master)
+        self.step8_frame.pack()
+        self.step8_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        ttk.Label(self.step7_frame, text='Trwa tłumaczenie opinii').grid(column=0,row=0,columnspan=2)
+        pb = ttk.Progressbar(self.step7_frame, orient="horizontal", mode="determinate", length=280)
+        pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+        
 
     def next_step(self):
         if self.step == 1:
@@ -229,6 +361,7 @@ class App:
             self.step1_frame.destroy()
             self.create_step2()
             self.step += 1
+
         elif self.step == 2:
             try:
                 self.selected_languages = [option for option, var in self.checkboxes.items() if var.get()]
@@ -241,31 +374,44 @@ class App:
             self.step2_frame.destroy()
             self.create_step3()
             self.step += 1
+
         elif self.step == 3:
-            for i in self.entries.values():
-                try:
-                    print(i.get())
-                except:
-                    pass
-            tags = self.entry3.get()
-            if not tags:
-                tk.messagebox.showerror("Błąd", "Musisz wprowadzić tagi")
-                return
-            else:
-                self.tags = tags
-            self.step3_frame.pack_forget()
+            languages_with_more_than_0 = {}
+            for name,amount in self.entries.items():
+                if type(amount) != int and amount.get() != 0:
+                    languages_with_more_than_0[name] = amount.get()
+            print(languages_with_more_than_0)
+            self.entries = languages_with_more_than_0
+            self.step3_frame.destroy()
             self.create_step4()
             self.step += 1
-        elif self.step == 4:
-            self.summarize = self.summarize_var.get()
-            self.sentiment = self.sentiment_var.get()
-            # Tutaj możesz dodać kod, który będzie wykonywany na podstawie wprowadzonych informacji i wybranych opcji
-            print(f"Nazwa gry: {self.game_name}")
-            print(f"Liczba recenzji: {self.review_num}")
-            print(f"Tagi: {self.tags}")
-            print(f"Użyj streszczania: {self.summarize}")
-            print(f"Sprawdź sentyment: {self.sentiment}")
 
+        elif self.step == 4:
+            if self.is_tagging.get() == 1:
+                self.tags = self.tags_text.get('0.0','end')
+                print(self.tags)
+            else:
+                self.tags = "N/A"
+                print(self.tags)
+            self.step4_frame.destroy()
+            self.create_step5()
+            self.step += 1
+
+        elif self.step == 5:
+            self.step5_frame.destroy()
+            self.create_step6()
+            self.step += 1
+
+        elif self.step == 6:
+            self.step6_frame.destroy()
+            self.create_step7()
+            self.step += 1
+
+        elif self.step == 7:
+            self.step7_frame.destroy()
+            self.create_step8()
+            self.step += 1
+            
     def prev_step(self):
         if self.step == 2:
             self.step2_frame.destroy()
