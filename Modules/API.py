@@ -7,11 +7,13 @@ def spam_remover(df,queue,callback,total):
     new_model = TFAutoModelForSequenceClassification.from_pretrained(
         "distilbert-base-uncased", num_labels=2
     )
-    new_model.load_weights(r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\ML models\spam.h5")
+    import os
+    print(os.getcwd())
+    new_model.load_weights(r"spam.h5")
     
     # Create a list to store the indices of rows to be removed
     rows_to_remove = []
-    
+
     for i, row in df.iterrows():
         start_time = time.time()
         content = str(row['translated'])

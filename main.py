@@ -22,8 +22,8 @@ import torch
 import requests
 import io
 
-sys.stderr = open('error.txt', 'w')
-sys.stdout = open('output.txt', 'w')
+#sys.stderr = open('error.txt', 'w')
+#sys.stdout = open('output.txt', 'w')
 
 def find_key_by_value(dictionary, value):
     for key, val in dictionary.items():
