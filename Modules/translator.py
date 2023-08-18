@@ -31,9 +31,27 @@ def translate_content(df, callback, num_to_translate, queue):
             #time.sleep(0.05)
             # Translate the content to English using the translate_large_text function
             if len(content) >= 5000:
-                translated_text = translate_large_text(content, language, 'en')
+                try:
+                    translated_text = translate_large_text(content, language, 'en')
+                except:
+                    for i in range(3):
+                        try:
+                            time.sleep(2)
+                            translated_text = translate_large_text(content, language, 'en')
+                            break
+                        except:
+                            pass
             else:
-                translated_text = GoogleTranslator(source=language, target='en').translate(content)
+                try:
+                    translated_text = GoogleTranslator(source=language, target='en').translate(content)
+                except:
+                    for i in range(3):
+                        try:
+                            time.sleep(2)
+                            translated_text = GoogleTranslator(source=language, target='en').translate(content)
+                            break
+                        except:
+                            pass
             # Store the translated text in the "translated" column
             df.at[i, 'translated'] = translated_text
         else:
@@ -45,3 +63,5 @@ def translate_content(df, callback, num_to_translate, queue):
         callback((1/num_to_translate)*100,end_time-start_time)
     print('skończyłem translatować')
     queue.put(df)
+
+

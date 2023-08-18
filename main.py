@@ -19,7 +19,8 @@ from tkinter import filedialog
 from queue import Queue
 import sys
 import torch
-
+import requests
+import io
 
 sys.stderr = open('error.txt', 'w')
 sys.stdout = open('output.txt', 'w')
@@ -108,19 +109,36 @@ class App:
         # Przejście do następnego kroku
         self.next_step()
 
+    def search_steam(self, game_name):
+        print('test')
+        from difflib import get_close_matches
+        url = "http://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json"
+        result = []
+        response = requests.get(url)
+        data = response.json()
+        apps = data["applist"]["apps"]
+        app_names = [app["name"] for app in apps]
+        closest_matches = get_close_matches(game_name, app_names, n=10, cutoff=0.6)
+        for match in closest_matches:
+            for app in apps:
+                if app["name"] == match:
+                    result.append(f'Nazwa gry: {app["name"]}, ID gry: {app["appid"]}, Link do strony gry na Steam: https://store.steampowered.com/app/{app["appid"]}')
+                    break
+        return result
+
     def search(self):
         for row in self.treeview.get_children():
             self.treeview.delete(row)
         # Run the Python code in a separate file and display the results in the Listbox
         game_name = self.entry1.get()
-        results = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\Modules\games_finder.py", game_name])
-        results = results.decode("utf-8").strip().split("\n")
+        results = self.search_steam(game_name)
         for result in results:
             game_name, game_id, game_link = result.split(", ")
             game_name = game_name.split(": ")[1]
             game_id = game_id.split(": ")[1]
             game_link = game_link.split(": ")[1]
             self.treeview.insert("", "end", values=(game_name, game_id, game_link))
+
 
     def open_link(self, event):
         # Get the selected item in the Treeview widget
@@ -152,18 +170,24 @@ class App:
         ttk.Button(self.step2_frame, text="Dalej", command=self.next_step).grid(row=len(options)//3+2, column=1)
         ttk.Button(self.step2_frame, text="Cofnij", command=self.prev_step).grid(row=len(options)//3+3, column=1)
 
+    def get_review_count(self, game_name: str, languages: list) -> list:
+        review_count = []
+        for lang in languages:
+            url = f"https://store.steampowered.com/appreviews/{game_name}?json=1&language={lang}"
+            response = requests.get(url)
+            data = response.json()
+            review_count.append(data["query_summary"]["total_reviews"])
+        return review_count
+
+
     def create_step3(self):
         self.step3_frame = ttk.Frame(self.master)
         self.step3_frame.pack()
         self.step3_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
-        languages = ','.join([self.languages_codes[language][1] for language in self.selected_languages])
-        results = subprocess.check_output(["python", r"C:\Users\tymot\Desktop\Projekty\Twitter_videogames_sentiment\Modules\review_counter.py", str(self.game_id), languages])
-        results = results.decode("utf-8").strip().split("\n")
-        keys = eval(results[0].strip())
-        values = eval(str(results[1]))
-        lang_num = dict(zip(keys, values))
-
+        languages = [self.languages_codes[language][1] for language in self.selected_languages]
+        results = self.get_review_count(str(self.game_id), languages)
+        lang_num = dict(zip(languages, results))
 
         self.language_frames = []
         self.current_language = 0
