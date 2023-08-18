@@ -1,3 +1,12 @@
+def script_method(fn, _rcb=None):
+    return fn
+def script(obj, optimize=True, _frames_up=0, _rcb=None):
+    return obj    
+import torch.jit
+torch.jit.script_method = script_method 
+torch.jit.script = script
+
+
 import tkinter as tk
 from tkinter import ttk
 from ttkbootstrap import Style
@@ -8,6 +17,12 @@ import pandas as pd
 import threading
 from tkinter import filedialog
 from queue import Queue
+import sys
+import torch
+
+
+sys.stderr = open('error.txt', 'w')
+sys.stdout = open('output.txt', 'w')
 
 def find_key_by_value(dictionary, value):
     for key, val in dictionary.items():
@@ -210,7 +225,7 @@ class App:
         self.step4_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.is_tagging = tk.BooleanVar()
 
-        ttk.Checkbutton(self.step4_frame, text="Chcę skorzystać z wyszukiwania po tagach:", variable=self.is_tagging).grid(column=0, row=0)
+        ttk.Checkbutton(self.step4_frame, text="Chcę skorzystać z wyszukiwania po tagach (UWAGA MOŻE ZAJĄĆ BARDZO DUŻO CZASU!):", variable=self.is_tagging).grid(column=0, row=0)
         self.tags_text = tk.Text(self.step4_frame, width=80, height=10, wrap='word')
         self.tags_text.grid(ipady=3, row=1, column=0, rowspan=4)
 
@@ -225,9 +240,8 @@ class App:
         self.summarize_var = tk.BooleanVar()
         self.sentiment_var = tk.BooleanVar()
         self.spam_filter = tk.BooleanVar()
-        ttk.Checkbutton(self.step5_frame, text="Użyj podstawowego filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
         ttk.Checkbutton(self.step5_frame, text="Użyj zaawansowanego filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
-        ttk.Checkbutton(self.step5_frame, text="Użyj streszczania opinii dłuższych niż 100 znaków", variable=self.summarize_var).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame, text="Użyj streszczania opinii dłuższych niż 300 znaków", variable=self.summarize_var).pack(pady=5)
         ttk.Checkbutton(self.step5_frame, text="Sprawdź sentyment", variable=self.sentiment_var).pack(pady=5)
 
         ttk.Button(self.step5_frame, text="Dalej", command=self.next_step).pack()
@@ -242,11 +256,31 @@ class App:
         ttk.Label(self.step6_frame, text='Trwa pobieranie opinii').grid(column=0,row=0,columnspan=2)
         pb = ttk.Progressbar(self.step6_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
-        total = sum(int(value) for value in self.entries.values())
 
-        def update_progressbar(value):
+        total = sum(int(value) for value in self.entries.values())
+        total_var = tk.StringVar(self.step6_frame, value="Pozostały czas: ")
+
+        ttk.Label(self.step6_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        total_time = 0.0
+        
+        
+        def update_progressbar(value, time):
             pb['value'] += value
             pb.update_idletasks()
+            nonlocal total_time
+            total_time += time
+            
+            avg_time_per_unit = total_time / pb['value']
+            # Calculate the remaining progress
+            remaining_progress = 100 - pb['value']
+            # Estimate the remaining time
+            remaining_time = avg_time_per_unit * remaining_progress
+
+            if remaining_time < 31:
+                total_var.set("Już prawie skończone")
+            else:
+                remaining_minutes = round(remaining_time / 60)
+                total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
 
         self.file_path = filedialog.askdirectory(title="Select folder")
         
@@ -281,7 +315,7 @@ class App:
             
             # Wait for all threads to finish without blocking the main thread
             def check_threads():
-                if all(not t.is_alive() for t in threads) & (self.threads_done == 0):
+                if all(not t.is_alive() for t in threads):
                     # All threads have finished
                     self.threads_done = 1
                     on_threads_finished(self.file_path)
@@ -304,44 +338,298 @@ class App:
             pb = ttk.Progressbar(self.step7_frame, orient="horizontal", mode="determinate", length=280)
             pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
 
-            def update_progressbar(value):
+            total_var = tk.StringVar(self.step7_frame, value="Pozostały czas: ")
+
+            ttk.Label(self.step7_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+
+            done = tk.StringVar(self.step7_frame, value=" ")
+
+            ttk.Label(self.step7_frame, textvariable=done).grid(column=0,row=3,columnspan=2)
+            total_time = 0.0
+
+            df = pd.read_excel(file_location)
+            num_to_translate = len(df[(df['language'] != 'english') & (df['content'].str.len() >= 3)])
+
+            total = 0
+
+            def update_progressbar(value, time):
                 pb['value'] += value
                 pb.update_idletasks()
-            df = pd.read_excel(file_location)
-
-            num_to_translate = len(df[(df['language'] != 'english') & (df['content'].str.len() >= 3)])
+                nonlocal total_time
+                nonlocal total
+                total_time += time
+                total += 1
+                
+                avg_time_per_unit = total_time / pb['value']
+                # Calculate the remaining progress
+                remaining_progress = 100 - pb['value']
+                # Estimate the remaining time
+                remaining_time = avg_time_per_unit * remaining_progress
+                
+                done.set(f"{total}/{num_to_translate}")
+                
+                if remaining_time < 31:
+                    total_var.set("Już prawie skończone")
+                else:
+                    remaining_minutes = round(remaining_time / 60)
+                    total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
 
             queue = Queue()
             threads =[]
-
-            for i in range(0,num_to_translate,200):
-                temp = df.iloc[i:i+200]
-                t = threading.Thread(target=translate_content, args=(temp, update_progressbar, i, self.file_path,num_to_translate,queue))
-                t.start()
-                threads.append(t)
+            t = threading.Thread(target=translate_content, args=(df, update_progressbar,num_to_translate,queue))
+            t.start()
+            threads.append(t)
 
             def check_threads():
-                if all(not t.is_alive() for t in threads) & (self.threads_done == 0):
+                if all(not t.is_alive() for t in threads):
                     self.threads_done = 1
+                    print('tutaj')
                     result = pd.concat(list(queue.queue))
-                    result.to_excel(f'{self.file_path}/output.xlsx')
+                    print('tu')
+                    result.to_excel(f'{self.file_path}/output.xlsx', index=False)
+                    print('nie bo tu')
                     self.next_step()
                 else:
                     # Not all threads have finished, check again after some time
+                    print('jeszcze nie')
+                    print(threads)
                     self.master.after(1000, check_threads)
             
             check_threads()
         else:
             self.next_step()
-    
+
     def create_step8(self):
         self.step8_frame = ttk.Frame(self.master)
         self.step8_frame.pack()
+        self.threads_done = 0
+        file_location = f'{self.file_path}/output.xlsx'
         self.step8_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step7_frame, text='Trwa tłumaczenie opinii').grid(column=0,row=0,columnspan=2)
-        pb = ttk.Progressbar(self.step7_frame, orient="horizontal", mode="determinate", length=280)
+        ttk.Label(self.step8_frame, text='Trwa odrzucanie spamu').grid(column=0,row=0,columnspan=2)
+        pb = ttk.Progressbar(self.step8_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+        from Modules.API import spam_remover
+
+        queue = Queue()
+        threads =[]
+
+        total_var = tk.StringVar(self.step8_frame, value="Pozostały czas: ")
+
+        ttk.Label(self.step8_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        total_time = 0.0
+
+        def update_progressbar(value, time):
+            pb['value'] += value
+            pb.update_idletasks()
+            nonlocal total_time
+            total_time += time
+            print(time,total_time)
+            avg_time_per_unit = total_time / pb['value']
+            # Calculate the remaining progress
+            remaining_progress = 100 - pb['value']
+            # Estimate the remaining time
+            remaining_time = avg_time_per_unit * remaining_progress
+            
+            if remaining_time < 31:
+                total_var.set("Już prawie skończone")
+            else:
+                remaining_minutes = round(remaining_time / 60)
+                total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
+
+        df = pd.read_excel(file_location)
+        total = df.shape[0]
+        t = threading.Thread(target=spam_remover, args=(df,queue,update_progressbar,total))
+        t.start()
+
+        threads.append(t)
+
+        def check_threads():
+            if all(not t.is_alive() for t in threads):
+                self.threads_done = 1
+                result = pd.concat(list(queue.queue))
+                result.to_excel(f'{self.file_path}/output.xlsx', index=False)
+                self.next_step()
+            else:
+                # Not all threads have finished, check again after some time
+                self.master.after(1000, check_threads)
         
+        check_threads()
+
+    def create_step9(self):
+        self.step9_frame = ttk.Frame(self.master)
+        self.step9_frame.pack()
+        self.threads_done = 0
+        from Modules.API import sentiment
+        file_location = f'{self.file_path}/output.xlsx'
+        self.step9_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        ttk.Label(self.step9_frame, text='Trwa sprawdzanie sentymentu').grid(column=0,row=0,columnspan=2)
+        pb = ttk.Progressbar(self.step9_frame, orient="horizontal", mode="determinate", length=280)
+        pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+
+        queue = Queue()
+        threads =[]
+
+        total_var = tk.StringVar(self.step9_frame, value="Pozostały czas: ")
+
+        ttk.Label(self.step9_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        total_time = 0.0
+
+        def update_progressbar(value, time):
+            pb['value'] += value
+            pb.update_idletasks()
+            nonlocal total_time
+            total_time += time
+            
+            avg_time_per_unit = total_time / pb['value']
+            # Calculate the remaining progress
+            remaining_progress = 100 - pb['value']
+            # Estimate the remaining time
+            remaining_time = avg_time_per_unit * remaining_progress
+            
+            if remaining_time < 31:
+                total_var.set("Już prawie skończone")
+            else:
+                remaining_minutes = round(remaining_time / 60)
+                total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
+
+        df = pd.read_excel(file_location)
+        total = df.shape[0]
+
+        t = threading.Thread(target=sentiment, args=(df,queue,update_progressbar,total))
+        t.start()
+        threads.append(t)
+
+        def check_threads():
+            if all(not t.is_alive() for t in threads):
+                self.threads_done = 1
+                result = pd.concat(list(queue.queue))
+                result.to_excel(f'{self.file_path}/output.xlsx', index=False)
+                self.next_step()
+            else:
+                # Not all threads have finished, check again after some time
+                self.master.after(1000, check_threads)
+        
+        check_threads()
+
+    def create_step10(self):
+        self.step10_frame = ttk.Frame(self.master)
+        self.step10_frame.pack()
+        self.threads_done = 0
+        from Modules.API import summary
+        file_location = f'{self.file_path}/output.xlsx'
+        self.step10_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        ttk.Label(self.step10_frame, text='Trwa streszczanie opinii dłużych niż 300 znaków').grid(column=0,row=0,columnspan=2)
+        pb = ttk.Progressbar(self.step10_frame, orient="horizontal", mode="determinate", length=280)
+        pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+
+        queue = Queue()
+        threads =[]
+
+        total_var = tk.StringVar(self.step10_frame, value="Pozostały czas: ")
+
+        ttk.Label(self.step10_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        total_time = 0.0
+
+        def update_progressbar(value, time):
+            pb['value'] += value
+            pb.update_idletasks()
+            nonlocal total_time
+            total_time += time
+            
+            avg_time_per_unit = total_time / pb['value']
+            # Calculate the remaining progress
+            remaining_progress = 100 - pb['value']
+            # Estimate the remaining time
+            remaining_time = avg_time_per_unit * remaining_progress
+            
+            if remaining_time < 31:
+                total_var.set("Już prawie skończone")
+            else:
+                remaining_minutes = round(remaining_time / 60)
+                total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
+        
+        df = pd.read_excel(file_location)
+        total = (df['translated'].str.len() > 100).sum()
+
+        t = threading.Thread(target=summary, args=(df,queue,update_progressbar,total))
+        t.start()
+        threads.append(t)
+
+        def check_threads():
+            if all(not t.is_alive() for t in threads):
+                self.threads_done = 1
+                result = pd.concat(list(queue.queue))
+                result.to_excel(f'{self.file_path}/output.xlsx', index=False)
+                self.next_step()
+            else:
+                # Not all threads have finished, check again after some time
+                self.master.after(1000, check_threads)
+
+        check_threads()
+
+    def create_step11(self):
+        self.step11_frame = ttk.Frame(self.master)
+        self.step11_frame.pack()
+        self.threads_done = 0
+        from Modules.API import tagger
+        file_location = f'{self.file_path}/output.xlsx'
+        self.step11_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        ttk.Label(self.step11_frame, text='Trwa przeszukiwanie treści w poszkiwaniu tagów').grid(column=0,row=0,columnspan=2)
+        pb = ttk.Progressbar(self.step11_frame, orient="horizontal", mode="determinate", length=280)
+        pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+
+        queue = Queue()
+        threads =[]
+
+        total_var = tk.StringVar(self.step11_frame, value="Pozostały czas: ")
+
+        ttk.Label(self.step11_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        total_time = 0.0
+
+        def update_progressbar(value, time):
+            pb['value'] += value
+            pb.update_idletasks()
+            nonlocal total_time
+            total_time += time
+            
+            avg_time_per_unit = total_time / pb['value']
+            # Calculate the remaining progress
+            remaining_progress = 100 - pb['value']
+            # Estimate the remaining time
+            remaining_time = avg_time_per_unit * remaining_progress
+            
+            if remaining_time < 31:
+                total_var.set("Już prawie skończone")
+            else:
+                remaining_minutes = round(remaining_time / 60)
+                total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
+        
+        
+        df = pd.read_excel(file_location)
+        total = df.shape[0]
+
+        t = threading.Thread(target=tagger, args=(df,queue,update_progressbar,total, self.tags))
+        t.start()
+        threads.append(t)
+
+        def check_threads():
+            if all(not t.is_alive() for t in threads) & (self.threads_done == 0):
+                self.threads_done = 1
+                result = pd.concat(list(queue.queue))
+                result.to_excel(f'{self.file_path}/output.xlsx', index=False)
+                self.next_step()
+            else:
+                # Not all threads have finished, check again after some time
+                self.master.after(1000, check_threads)
+
+        check_threads()
+
+    def create_step12(self):
+        self.step12_frame = ttk.Frame(self.master)
+        self.step12_frame.pack()
+        self.step12_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        ttk.Label(self.step12_frame, text='Koniec').grid(column=0,row=0,columnspan=2)
+           
 
     def next_step(self):
         if self.step == 1:
@@ -409,8 +697,64 @@ class App:
 
         elif self.step == 7:
             self.step7_frame.destroy()
-            self.create_step8()
-            self.step += 1
+            if self.spam_filter.get():
+                self.create_step8()
+                self.step += 1
+            else:
+                self.step += 1
+                self.next_step()
+
+        elif self.step == 8:
+            if hasattr(self, 'step8_frame'):
+                self.step8_frame.destroy()
+            if self.sentiment_var.get():
+                self.create_step9()
+                self.step += 1
+            else:
+                self.step += 1
+                self.next_step()
+            
+
+        elif self.step == 9:
+            print(self.summarize_var.get())
+            if hasattr(self, 'step9_frame'):
+                self.step9_frame.destroy()
+            if self.summarize_var.get():
+                self.create_step10()
+                self.step += 1
+            else:
+                self.step += 1
+                self.next_step()
+            
+
+        elif self.step == 10:
+            if hasattr(self, 'step10_frame'):
+                self.step10_frame.destroy()
+            if self.is_tagging.get():
+                self.create_step11()
+                self.step += 1
+            else:
+                self.step += 1
+                self.next_step()
+            
+        
+        elif self.step == 11:
+            if hasattr(self, 'step11_frame'):
+                self.step11_frame.destroy()
+            self.create_step12()
+ 
+
+        # elif self.step == 11:
+        #     if hasattr(self, 'step11_frame'):
+        #         self.step11_frame.destroy()
+        #     if self.is_tagging.get():
+        #         self.create_step12()
+        #         self.step += 1
+        #     else:
+        #         self.step += 1
+        #         self.next_step()
+        #     self.step += 1
+
             
     def prev_step(self):
         if self.step == 2:
