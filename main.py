@@ -6,7 +6,6 @@ import torch.jit
 torch.jit.script_method = script_method 
 torch.jit.script = script
 
-
 import tkinter as tk
 from tkinter import ttk
 from ttkbootstrap import Style
@@ -21,6 +20,12 @@ import sys
 import torch
 import requests
 import io
+
+abspath = os.path.abspath(__file__)
+print(f'abspath: {abspath}')
+dname = os.path.dirname(abspath)
+print(f'dname: {dname}')
+os.chdir(dname)
 
 #sys.stderr = open('error.txt', 'w')
 #sys.stdout = open('output.txt', 'w')
@@ -173,7 +178,7 @@ class App:
     def get_review_count(self, game_name: str, languages: list) -> list:
         review_count = []
         for lang in languages:
-            url = f"https://store.steampowered.com/appreviews/{game_name}?json=1&language={lang}"
+            url = f"https://store.steampowered.com/appreviews/{game_name}?json=1&language={lang}&purchase_type=all"
             response = requests.get(url)
             data = response.json()
             review_count.append(data["query_summary"]["total_reviews"])
@@ -265,7 +270,7 @@ class App:
         self.sentiment_var = tk.BooleanVar()
         self.spam_filter = tk.BooleanVar()
         ttk.Checkbutton(self.step5_frame, text="Użyj zaawansowanego filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
-        ttk.Checkbutton(self.step5_frame, text="Użyj streszczania opinii dłuższych niż 300 znaków", variable=self.summarize_var).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame, text="Użyj streszczania dłuższych opinii", variable=self.summarize_var).pack(pady=5)
         ttk.Checkbutton(self.step5_frame, text="Sprawdź sentyment", variable=self.sentiment_var).pack(pady=5)
 
         ttk.Button(self.step5_frame, text="Dalej", command=self.next_step).pack()
@@ -351,77 +356,76 @@ class App:
             check_threads()
 
     def create_step7(self):
-        if any(x != 'english' for x in self.entries.keys()):
-            self.threads_done = 0
-            self.step7_frame = ttk.Frame(self.master)
-            self.step7_frame.pack()
-            self.step7_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-            from Modules.translator import translate_content
-            file_location = f'{self.file_path}/output.xlsx'
-            ttk.Label(self.step7_frame, text='Trwa tłumaczenie opinii').grid(column=0,row=0,columnspan=2)
-            pb = ttk.Progressbar(self.step7_frame, orient="horizontal", mode="determinate", length=280)
-            pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
+        self.threads_done = 0
+        self.step7_frame = ttk.Frame(self.master)
+        self.step7_frame.pack()
+        self.step7_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        from Modules.translator import translate_content
+        file_location = f'{self.file_path}/output.xlsx'
+        ttk.Label(self.step7_frame, text='Trwa tłumaczenie opinii').grid(column=0,row=0,columnspan=2)
+        pb = ttk.Progressbar(self.step7_frame, orient="horizontal", mode="determinate", length=280)
+        pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
 
-            total_var = tk.StringVar(self.step7_frame, value="Pozostały czas: ")
+        total_var = tk.StringVar(self.step7_frame, value="Pozostały czas: ")
 
-            ttk.Label(self.step7_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        ttk.Label(self.step7_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
 
-            done = tk.StringVar(self.step7_frame, value=" ")
+        done = tk.StringVar(self.step7_frame, value=" ")
 
-            ttk.Label(self.step7_frame, textvariable=done).grid(column=0,row=3,columnspan=2)
-            total_time = 0.0
+        ttk.Label(self.step7_frame, textvariable=done).grid(column=0,row=3,columnspan=2)
+        total_time = 0.0
 
-            df = pd.read_excel(file_location)
-            num_to_translate = len(df[(df['language'] != 'english') & (df['content'].str.len() >= 3)])
+        df = pd.read_excel(file_location)
+        
+        num_to_translate_total = len(df)
 
-            total = 0
+        total = 0
 
-            def update_progressbar(value, time):
-                pb['value'] += value
-                pb.update_idletasks()
-                nonlocal total_time
-                nonlocal total
-                total_time += time
-                total += 1
-                
-                avg_time_per_unit = total_time / pb['value']
-                # Calculate the remaining progress
-                remaining_progress = 100 - pb['value']
-                # Estimate the remaining time
-                remaining_time = avg_time_per_unit * remaining_progress
-                
-                done.set(f"{total}/{num_to_translate}")
-                
-                if remaining_time < 31:
-                    total_var.set("Już prawie skończone")
-                else:
-                    remaining_minutes = round(remaining_time / 60)
-                    total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
-
-            queue = Queue()
-            threads =[]
-            t = threading.Thread(target=translate_content, args=(df, update_progressbar,num_to_translate,queue))
-            t.start()
-            threads.append(t)
-
-            def check_threads():
-                if all(not t.is_alive() for t in threads):
-                    self.threads_done = 1
-                    print('tutaj')
-                    result = pd.concat(list(queue.queue))
-                    print('tu')
-                    result.to_excel(f'{self.file_path}/output.xlsx', index=False)
-                    print('nie bo tu')
-                    self.next_step()
-                else:
-                    # Not all threads have finished, check again after some time
-                    print('jeszcze nie')
-                    print(threads)
-                    self.master.after(1000, check_threads)
+        def update_progressbar(value, time):
+            pb['value'] += value
+            pb.update_idletasks()
+            nonlocal total_time
+            nonlocal total
+            total_time += time
+            total += 1
             
-            check_threads()
-        else:
-            self.next_step()
+            avg_time_per_unit = total_time / pb['value']
+            # Calculate the remaining progress
+            remaining_progress = 100 - pb['value']
+            # Estimate the remaining time
+            remaining_time = avg_time_per_unit * remaining_progress
+            
+            done.set(f"{total}/{num_to_translate_total}")
+            
+            if remaining_time < 31:
+                total_var.set("Już prawie skończone")
+            else:
+                remaining_minutes = round(remaining_time / 60)
+                total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
+
+        queue = Queue()
+        threads =[]
+        t = threading.Thread(target=translate_content, args=(df, update_progressbar,num_to_translate_total,queue))
+        t.start()
+        threads.append(t)
+
+        def check_threads():
+            if all(not t.is_alive() for t in threads):
+                self.threads_done = 1
+                print('tutaj')
+                result = pd.concat(list(queue.queue))
+                print('tu')
+                result.to_excel(f'{self.file_path}/output.xlsx', index=False)
+                print('nie bo tu')
+                self.next_step()
+            else:
+                # Not all threads have finished, check again after some time
+                print('jeszcze nie')
+                print(threads)
+                self.master.after(1000, check_threads)
+        
+        check_threads()
+        
 
     def create_step8(self):
         self.step8_frame = ttk.Frame(self.master)
@@ -550,16 +554,27 @@ class App:
         threads =[]
 
         total_var = tk.StringVar(self.step10_frame, value="Pozostały czas: ")
-
         ttk.Label(self.step10_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+
+        done = tk.StringVar(self.step10_frame, value=" ")
+
+        ttk.Label(self.step10_frame, textvariable=done).grid(column=0,row=3,columnspan=2)
         total_time = 0.0
+
+        df = pd.read_excel(file_location)
+        total = df.shape[0]
+        total_temp = 0
 
         def update_progressbar(value, time):
             pb['value'] += value
             pb.update_idletasks()
             nonlocal total_time
+            nonlocal total_temp
             total_time += time
+            total_temp += 1
             
+            done.set(f"{total_temp}/{total}")
+
             avg_time_per_unit = total_time / pb['value']
             # Calculate the remaining progress
             remaining_progress = 100 - pb['value']
@@ -571,9 +586,6 @@ class App:
             else:
                 remaining_minutes = round(remaining_time / 60)
                 total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
-        
-        df = pd.read_excel(file_location)
-        total = (df['translated'].str.len() > 100).sum()
 
         t = threading.Thread(target=summary, args=(df,queue,update_progressbar,total))
         t.start()
@@ -715,12 +727,24 @@ class App:
             self.step += 1
 
         elif self.step == 6:
-            self.step6_frame.destroy()
-            self.create_step7()
-            self.step += 1
+            if any(x != 'english' for x in self.entries.keys()):
+                self.create_step7()
+                self.step += 1
+            else:
+                if hasattr(self, 'step6_frame'):
+                    self.step6_frame.destroy()
+                file_location = f'{self.file_path}/output.xlsx'
+                df = pd.read_excel(file_location)
+                df['translated'] = df['content']
+                df.to_excel(f'{self.file_path}/output.xlsx', index=False)
+                self.create_step7()
+                self.step += 1
+                
+
 
         elif self.step == 7:
-            self.step7_frame.destroy()
+            if hasattr(self, 'step7_frame'):
+                self.step7_frame.destroy()
             if self.spam_filter.get():
                 self.create_step8()
                 self.step += 1
@@ -766,20 +790,7 @@ class App:
             if hasattr(self, 'step11_frame'):
                 self.step11_frame.destroy()
             self.create_step12()
- 
-
-        # elif self.step == 11:
-        #     if hasattr(self, 'step11_frame'):
-        #         self.step11_frame.destroy()
-        #     if self.is_tagging.get():
-        #         self.create_step12()
-        #         self.step += 1
-        #     else:
-        #         self.step += 1
-        #         self.next_step()
-        #     self.step += 1
-
-            
+          
     def prev_step(self):
         if self.step == 2:
             self.step2_frame.destroy()

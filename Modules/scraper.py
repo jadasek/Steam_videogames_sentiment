@@ -14,7 +14,7 @@ def get_steam_reviews(file_path, callback, total, appid, language, amount=100, f
     while (cursor and cursor != previous_cursor) and (amount_temp < int(amount)):
         start_time = time.time()
         encoded_cursor = quote(cursor)
-        url = f"https://store.steampowered.com/appreviews/{appid}?json=1&language={language}&cursor={encoded_cursor}&filter={filter}"
+        url = f"https://store.steampowered.com/appreviews/{appid}?json=1&language={language}&cursor={encoded_cursor}&filter={filter}&purchase_type=all"
         response = requests.get(url)
         data = response.json()
         previous_cursor = cursor
