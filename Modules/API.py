@@ -56,6 +56,7 @@ def spam_remover(df,queue,callback,total):
     queue.put(df)
 
 
+
 def sentiment(df, queue, callback, total):
     from scipy.special import softmax
     roberta = "cardiffnlp/twitter-roberta-base-sentiment-latest"
@@ -67,27 +68,15 @@ def sentiment(df, queue, callback, total):
     df['predicted_sentiment'] = ''
     df['sentiment_value'] = 0.0
 
-    for i, row in df.iterrows():
-        start_time = time.time()
-        try:
-            content = str(row['translated'])
-            tweet = content
-
-            # Sentiment analysis
-            encoded_tweet = tokenizer(tweet, return_tensors='pt', max_length=512, truncation=True)
+    def sliding_window_sentiment(text, window_size, stride):
+        sentiments = []
+        values = []
+        if len(text) < window_size:
+            # Handle the case where the text is shorter than the window size
+            encoded_tweet = tokenizer(text, return_tensors='pt', max_length=512, truncation=True)
             output = model(**encoded_tweet)
-
             scores = output[0][0].detach().numpy()
             scores = softmax(scores)
-
-            # Get the index of the highest score
-            max_index = scores.argmax()
-
-            # Get the label corresponding to the highest score
-            predicted_sentiment = labels[max_index]
-
-            # Store the predicted sentiment in the DataFrame
-            df.at[i, 'predicted_sentiment'] = predicted_sentiment
 
             value = 0
             for score in range(len(scores)):
@@ -95,11 +84,89 @@ def sentiment(df, queue, callback, total):
                     value += scores[score] 
                 elif score == 2:
                     value += scores[score] * 2
-            df.at[i, 'sentiment_value'] = value/2
+            values.append(value/2)
+            
+        else:
+            start = 0
+            end = window_size
+            while end <= len(text):
+                chunk = text[start:end]
+                encoded_tweet = tokenizer(chunk, return_tensors='pt', max_length=512, truncation=True)
+                output = model(**encoded_tweet)
+                scores = output[0][0].detach().numpy()
+                scores = softmax(scores)
+
+                value = 0
+                for score in range(len(scores)):
+                    if score == 1:
+                        value += scores[score] 
+                    elif score == 2:
+                        value += scores[score] * 2
+                values.append(value/2)
+
+                start += stride
+                end += stride
+
+        return sum(values)/len(values)
+
+    for i, row in df.iterrows():
+        start_time = time.time()
+        try:
+            content = str(row['translated'])
+            tweet = content
+
+            # Sentiment analysis
+            if len(content) > 500:
+                window_size = 1024
+                stride = 1024
+                sentiment_value = sliding_window_sentiment(tweet, window_size, stride)
+                df.at[i, 'sentiment_value'] = sentiment_value
+
+                if sentiment_value < 0.15:
+                    predicted_sentiment = 'Very negative'
+                elif sentiment_value < 0.30:
+                    predicted_sentiment = 'Negative'
+                elif sentiment_value < 0.7:
+                    predicted_sentiment = 'Neutral'
+                elif sentiment_value < 0.85:
+                    predicted_sentiment = 'Positive'
+                else:
+                    predicted_sentiment = 'Very positive'
+
+                df.at[i, 'predicted_sentiment'] = predicted_sentiment
+            else:
+                encoded_tweet = tokenizer(tweet, return_tensors='pt', max_length=512, truncation=True)
+                output = model(**encoded_tweet)
+                scores = output[0][0].detach().numpy()
+                scores = softmax(scores)
+
+                value = 0
+                for score in range(len(scores)):
+                    if score == 1:
+                        value += scores[score] 
+                    elif score == 2:
+                        value += scores[score] * 2
+                df.at[i, 'sentiment_value'] = value/2
+
+                value = value/2
+                
+                if value < 0.15:
+                    predicted_sentiment = 'Very negative'
+                elif value < 0.30:
+                    predicted_sentiment = 'Negative'
+                elif value < 0.7:
+                    predicted_sentiment = 'Neutral'
+                elif value < 0.85:
+                    predicted_sentiment = 'Positive'
+                else:
+                    predicted_sentiment = 'Very positive'
+                
+                df.at[i, 'predicted_sentiment'] = predicted_sentiment
         except:
             df.at[i, 'sentiment_value'] = 'ERROR'
         end_time = time.time()
         callback((1/total)*100, end_time-start_time)
+
 
     # Put the resulting DataFrame into the queue
     queue.put(df)
