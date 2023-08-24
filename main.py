@@ -254,12 +254,12 @@ class App:
         self.step4_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.is_tagging = tk.BooleanVar()
 
-        ttk.Checkbutton(self.step4_frame, text="Chcę skorzystać z wyszukiwania po tagach (UWAGA MOŻE ZAJĄĆ BARDZO DUŻO CZASU!):", variable=self.is_tagging).grid(column=0, row=0)
+        ttk.Checkbutton(self.step4_frame, text="Chcę skorzystać z wyszkiwania tagów w tekście (kolejne tagi podawaj po przecinku, UWAGA MOŻE ZAJĄĆ BARDZO DUŻO CZASU!):", variable=self.is_tagging).grid(column=0, row=0)
         self.tags_text = tk.Text(self.step4_frame, width=80, height=10, wrap='word')
         self.tags_text.grid(ipady=3, row=1, column=0, rowspan=4)
 
-        ttk.Button(self.step4_frame, text="Dalej", command=self.next_step).grid(row=5,column=1)
-        ttk.Button(self.step4_frame, text="Cofnij", command=self.prev_step).grid(row=5,column=0)
+        ttk.Button(self.step4_frame, text="Dalej", command=self.next_step).grid(row=1,column=1)
+        ttk.Button(self.step4_frame, text="Cofnij", command=self.prev_step).grid(row=2,column=1)
 
     def create_step5(self):
         self.step5_frame = ttk.Frame(self.master)
@@ -269,8 +269,8 @@ class App:
         self.summarize_var = tk.BooleanVar()
         self.sentiment_var = tk.BooleanVar()
         self.spam_filter = tk.BooleanVar()
-        ttk.Checkbutton(self.step5_frame, text="Użyj zaawansowanego filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
-        ttk.Checkbutton(self.step5_frame, text="Użyj streszczania dłuższych opinii", variable=self.summarize_var).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame, text="Użyj filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame, text="Użyj streszczania dłuższych opinii (UWAGA MOŻE ZAJĄĆ BARDZO DUŻO CZASU!)", variable=self.summarize_var).pack(pady=5)
         ttk.Checkbutton(self.step5_frame, text="Sprawdź sentyment", variable=self.sentiment_var).pack(pady=5)
 
         ttk.Button(self.step5_frame, text="Dalej", command=self.next_step).pack()
@@ -713,7 +713,11 @@ class App:
         elif self.step == 4:
             if self.is_tagging.get() == 1:
                 self.tags = self.tags_text.get('0.0','end')
-                print(self.tags)
+                print('tagi: ', self.tags, 'ssssss')
+                if self.tags == '\n':
+                    print('aaaaaaaa')
+                    self.is_tagging.set(0)
+                    print(self.is_tagging.get())
             else:
                 self.tags = "N/A"
                 print(self.tags)
@@ -739,8 +743,6 @@ class App:
                 df.to_excel(f'{self.file_path}/output.xlsx', index=False)
                 self.create_step7()
                 self.step += 1
-                
-
 
         elif self.step == 7:
             if hasattr(self, 'step7_frame'):
@@ -803,6 +805,10 @@ class App:
         elif self.step == 4:
             self.step4_frame.destroy()
             self.create_step3()
+            self.step -= 1
+        elif self.step == 5:
+            self.step4_frame.destroy()
+            self.create_step4()
             self.step -= 1
 
 root = tk.Tk()

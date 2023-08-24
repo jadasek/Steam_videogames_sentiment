@@ -205,7 +205,7 @@ def summary(df,queue,callback,total):
             else:
                 df.at[i, 'summary'] = ' '
         except:
-                df.at[i, 'summary'] = 'ERROR'
+                df.at[i, 'summary'] = ' '
         end_time = time.time()
         callback((1/total)*100, end_time-start_time)
 
@@ -238,19 +238,23 @@ def tagger(df,queue,callback,total,tags):
         start_time = time.time()
         content = str(row['translated'])
         try:
-            if len(content) > 300:
-                window_size = 1024
-                stride = 512
-                classifications = sliding_window_classify(content, window_size, stride)
-                df.at[i,'tags'] = classifications
+            if len(content) >= 150:
+                if len(content) > 1000:
+                    window_size = 1024
+                    stride = 512
+                    classifications = sliding_window_classify(content, window_size, stride)
+                    df.at[i,'tags'] = classifications
+                else:
+                    sequence_to_classify = content
+                    result = classifier(sequence_to_classify, tags, multi_label=True)
+                    high_scores = [label for label, score in zip(result['labels'], result['scores']) if score > 0.75]
+                    df.at[i,'tags'] = high_scores
             else:
-                sequence_to_classify = content
-                result = classifier(sequence_to_classify, tags, multi_label=True)
-                high_scores = [label for label, score in zip(result['labels'], result['scores']) if score > 0.75]
-                df.at[i,'tags'] = high_scores
+                df.at[i,'tags'] = []
         except:
-            df.at[i,'tags'] = 'ERROR'
+            df.at[i,'tags'] = []
         end_time = time.time()
         callback((1/total)*100, end_time-start_time)
 
     queue.put(df)
+
