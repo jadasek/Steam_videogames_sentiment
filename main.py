@@ -64,7 +64,7 @@ class App:
         ttk.Button(self.step1_frame, text="Wyszukaj", command=self.search).pack()
         ttk.Button(self.step1_frame, text="Gra nie wyświetla się na liście", command=self.open_new_window).pack(pady=10)
 
-        # Create a Treeview widget to display the data in a table format
+        
         self.treeview = ttk.Treeview(self.step1_frame, columns=("Nazwa gry", "ID gry", "Link do strony gry na Steam"), show="headings")
         self.treeview.column('Link do strony gry na Steam',width=400)
         self.treeview.column('ID gry',width=50)
@@ -82,22 +82,22 @@ class App:
 
 
     def open_new_window(self):
-        # Tworzenie nowego okna
+        
         new_window = tk.Toplevel(self.master)
         new_window.grab_set()
         new_window.minsize(width=250, height=120)
 
         ttk.Label(new_window, text="Wprowadź id gry:").pack()
-        # Dodanie pola do wprowadzenia wartości
+        
         self.value_entry = ttk.Entry(new_window)
         self.value_entry.pack()
         
-        # Dodanie przycisku do zamknięcia okna i przejścia do następnego kroku
+        
         ttk.Button(new_window, text="Zamknij i przejdź dalej", command=lambda: self.close_new_window(new_window)).pack()
         ttk.Button(new_window, text="Anuluj", command=new_window.destroy).pack()
 
     def close_new_window(self, new_window):
-        # Pobranie wartości z pola Entry w nowym oknie
+       
         value = new_window.winfo_children()[1].get()
         if not value:
             tk.messagebox.showerror("Błąd", "Pole nie może być puste")
@@ -108,10 +108,10 @@ class App:
         except ValueError:
             tk.messagebox.showerror("Błąd", "Upewnij się, że wpisujesz tylko liczby")
             return
-        # Zamknięcie nowego okna
+        
         new_window.destroy()
         
-        # Przejście do następnego kroku
+        
         self.next_step()
 
     def search_steam(self, game_name):
@@ -134,7 +134,6 @@ class App:
     def search(self):
         for row in self.treeview.get_children():
             self.treeview.delete(row)
-        # Run the Python code in a separate file and display the results in the Listbox
         game_name = self.entry1.get()
         results = self.search_steam(game_name)
         for result in results:
@@ -146,10 +145,8 @@ class App:
 
 
     def open_link(self, event):
-        # Get the selected item in the Treeview widget
         selection = self.treeview.selection()
         if selection:
-            # Get the game link from the selected item
             item = self.treeview.item(selection[0])
             game_link = item["values"][2]
             if game_link.startswith("http"):
@@ -300,9 +297,7 @@ class App:
             total_time += time
             
             avg_time_per_unit = total_time / pb['value']
-            # Calculate the remaining progress
             remaining_progress = 100 - pb['value']
-            # Estimate the remaining time
             remaining_time = avg_time_per_unit * remaining_progress
 
             if remaining_time < 31:
@@ -311,11 +306,9 @@ class App:
                 remaining_minutes = round(remaining_time / 60)
                 total_var.set(f"Pozostały czas: około {remaining_minutes} minut")
 
-        self.file_path = filedialog.askdirectory(title="Select folder")
+        self.file_path = filedialog.askdirectory(title="Wybierz folder")
         
         def on_threads_finished(file_path):
-            # This function will be called after all threads have finished
-            # Add your code here to process the files
             files = [f for f in os.listdir(file_path) if f.endswith('.xlsx')]
             data = []
             print(files)
@@ -327,9 +320,7 @@ class App:
                 data.append(df)
                 os.remove(file_path2)
 
-            # Concatenate all data into a single DataFrame
             combined_data = pd.concat(data)
-            # Write the combined data to the output file
             combined_data.to_excel(f'{file_path}/output.xlsx', index=False)
             self.next_step()
 
@@ -342,17 +333,13 @@ class App:
                 t.start()
                 threads.append(t)
             
-            # Wait for all threads to finish without blocking the main thread
             def check_threads():
                 if all(not t.is_alive() for t in threads):
-                    # All threads have finished
                     self.threads_done = 1
                     on_threads_finished(self.file_path)
                 else:
-                    # Not all threads have finished, check again after some time
                     self.master.after(1000, check_threads)
 
-            # Start checking if all threads have finished
             check_threads()
 
     def create_step7(self):
@@ -390,9 +377,7 @@ class App:
             total += 1
             
             avg_time_per_unit = total_time / pb['value']
-            # Calculate the remaining progress
             remaining_progress = 100 - pb['value']
-            # Estimate the remaining time
             remaining_time = avg_time_per_unit * remaining_progress
             
             done.set(f"{total}/{num_to_translate_total}")
@@ -419,7 +404,6 @@ class App:
                 print('nie bo tu')
                 self.next_step()
             else:
-                # Not all threads have finished, check again after some time
                 print('jeszcze nie')
                 print(threads)
                 self.master.after(1000, check_threads)
@@ -453,9 +437,7 @@ class App:
             total_time += time
             print(time,total_time)
             avg_time_per_unit = total_time / pb['value']
-            # Calculate the remaining progress
             remaining_progress = 100 - pb['value']
-            # Estimate the remaining time
             remaining_time = avg_time_per_unit * remaining_progress
             
             if remaining_time < 31:
@@ -478,7 +460,6 @@ class App:
                 result.to_excel(f'{self.file_path}/output.xlsx', index=False)
                 self.next_step()
             else:
-                # Not all threads have finished, check again after some time
                 self.master.after(1000, check_threads)
         
         check_threads()
@@ -509,9 +490,7 @@ class App:
             total_time += time
             
             avg_time_per_unit = total_time / pb['value']
-            # Calculate the remaining progress
             remaining_progress = 100 - pb['value']
-            # Estimate the remaining time
             remaining_time = avg_time_per_unit * remaining_progress
             
             if remaining_time < 31:
@@ -534,7 +513,6 @@ class App:
                 result.to_excel(f'{self.file_path}/output.xlsx', index=False)
                 self.next_step()
             else:
-                # Not all threads have finished, check again after some time
                 self.master.after(1000, check_threads)
         
         check_threads()
@@ -576,9 +554,7 @@ class App:
             done.set(f"{total_temp}/{total}")
 
             avg_time_per_unit = total_time / pb['value']
-            # Calculate the remaining progress
             remaining_progress = 100 - pb['value']
-            # Estimate the remaining time
             remaining_time = avg_time_per_unit * remaining_progress
             
             if remaining_time < 31:
@@ -598,7 +574,6 @@ class App:
                 result.to_excel(f'{self.file_path}/output.xlsx', index=False)
                 self.next_step()
             else:
-                # Not all threads have finished, check again after some time
                 self.master.after(1000, check_threads)
 
         check_threads()
@@ -629,9 +604,7 @@ class App:
             total_time += time
             
             avg_time_per_unit = total_time / pb['value']
-            # Calculate the remaining progress
             remaining_progress = 100 - pb['value']
-            # Estimate the remaining time
             remaining_time = avg_time_per_unit * remaining_progress
             
             if remaining_time < 31:
@@ -655,7 +628,6 @@ class App:
                 result.to_excel(f'{self.file_path}/output.xlsx', index=False)
                 self.next_step()
             else:
-                # Not all threads have finished, check again after some time
                 self.master.after(1000, check_threads)
 
         check_threads()
