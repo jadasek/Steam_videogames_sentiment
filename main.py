@@ -8,6 +8,7 @@ torch.jit.script = script
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter.font import Font
 from ttkbootstrap import Style
 import webbrowser
 import subprocess
@@ -27,8 +28,8 @@ dname = os.path.dirname(abspath)
 print(f'dname: {dname}')
 os.chdir(dname)
 
-sys.stderr = open('error.txt', 'w')
-sys.stdout = open('output.txt', 'w')
+#sys.stderr = open('error.txt', 'w')
+#sys.stdout = open('output.txt', 'w')
 
 def find_key_by_value(dictionary, value):
     for key, val in dictionary.items():
@@ -57,7 +58,7 @@ class App:
         self.step1_frame = ttk.Frame(self.master)
         self.step1_frame.pack()
         self.step1_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step1_frame, text="Krok 1: Wprowadź nazwę gry z platformy Steam").pack()
+        ttk.Label(self.step1_frame, font=("Arial",20), text="Krok 1: Wprowadź nazwę gry z platformy Steam").pack()
         self.entry1 = ttk.Entry(self.step1_frame, width=98)
         self.entry1.insert(0, self.game_name)
         self.entry1.pack()
@@ -76,8 +77,8 @@ class App:
         self.treeview.pack()
 
         ttk.Separator(self.step1_frame, orient='horizontal').pack(fill='x', pady=10)
-        ttk.Label(self.step1_frame, text="Wpisz nazwę gry, a program spróbuje znaleźć ją w sklepie Steam. Następnie wybierz ze zwróconych wartości te grę, której szukasz. Możesz kliknąć dwukrotnie na rekord, a zostaniesz przeniesiony na stronę produktu.").pack()
-        ttk.Label(self.step1_frame, text="Jeżeli gra nie wyświetla się na liście kliknij przycisk 'Gra nie wyświetla się na liście'").pack()
+        ttk.Label(self.step1_frame, font=("Arial",10),text="Wpisz nazwę gry, a program spróbuje znaleźć ją w sklepie Steam. Następnie wybierz ze zwróconych wartości te grę, której szukasz. Możesz kliknąć dwukrotnie na rekord, a zostaniesz przeniesiony na stronę produktu.").pack()
+        ttk.Label(self.step1_frame, font=("Arial",10),text="Jeżeli gra nie wyświetla się na liście kliknij przycisk 'Gra nie wyświetla się na liście'").pack()
         ttk.Button(self.step1_frame, text="Dalej", command=self.next_step).pack()
 
 
@@ -87,7 +88,7 @@ class App:
         new_window.grab_set()
         new_window.minsize(width=250, height=120)
 
-        ttk.Label(new_window, text="Wprowadź id gry:").pack()
+        ttk.Label(new_window, font=("Arial",20),text="Wprowadź id gry:").pack()
         
         self.value_entry = ttk.Entry(new_window)
         self.value_entry.pack()
@@ -157,7 +158,7 @@ class App:
         self.step2_frame = ttk.Frame(self.master)
         self.step2_frame.pack()
         self.step2_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step2_frame, text="Krok 2: Wybierz języki").grid(row=0, column=0, columnspan=3)
+        ttk.Label(self.step2_frame, font=("Arial",20),text="Krok 2: Wybierz języki").grid(row=0, column=0, columnspan=3)
         options = self.languages_codes.keys()
         options = sorted(options)
         
@@ -166,7 +167,7 @@ class App:
         num_rows = len(options)//num_columns+1
         for i, option in enumerate(options):
             self.checkboxes[option] = tk.BooleanVar()
-            checkbutton = tk.Checkbutton(self.step2_frame, text=option, variable=self.checkboxes[option])
+            checkbutton = tk.Checkbutton(self.step2_frame, font=("Arial",20),text=option, variable=self.checkboxes[option])
             checkbutton.grid(row=(i)%num_rows+1, column=(i)//num_rows, sticky="w")
 
         ttk.Button(self.step2_frame, text="Dalej", command=self.next_step).grid(row=len(options)//3+2, column=1)
@@ -198,14 +199,14 @@ class App:
             custom_scale.set(100 if max_reviews > 100 else max_reviews)
             frame = ttk.Frame(self.step3_frame)
             if max_reviews > 0:
-                ttk.Label(frame, text=f"Dla języka {find_key_by_value(self.languages_codes, language)}:").grid(row=0,column=0, columnspan=4)
+                ttk.Label(frame, font=("Arial",20),text=f"Dla języka {find_key_by_value(self.languages_codes, language)}:").grid(row=0,column=0, columnspan=4)
                 tk.Scale(frame, from_=1, to=max_reviews, orient='horizontal', variable=custom_scale, length=400, resolution= 1).grid(row=1,column=1,columnspan=1,pady=10, padx=10)
                 custom_entry = ttk.Entry(frame, textvariable=custom_scale)
                 custom_entry.grid(row=1,column=3,columnspan=1,pady=10)
                 self.entries[language] = custom_entry
                 self.language_frames.append(frame)
             else:
-                ttk.Label(frame, text=f"Dla języka {find_key_by_value(self.languages_codes, language)} nie ma żadnych opinii").grid(row=0,column=0, columnspan=4)
+                ttk.Label(frame, font=("Arial",20),text=f"Dla języka {find_key_by_value(self.languages_codes, language)} nie ma żadnych opinii").grid(row=0,column=0, columnspan=4)
                 self.entries[language] = 0
                 self.language_frames.append(frame)
         self.show_language_frame(self.current_language)
@@ -250,7 +251,8 @@ class App:
         self.step4_frame.pack()
         self.step4_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.is_tagging = tk.BooleanVar()
-
+        style = ttk.Style()
+        style.configure('TCheckbutton', font=('Arial', 13))
         ttk.Checkbutton(self.step4_frame, text="Chcę skorzystać z wyszkiwania tagów w tekście (kolejne tagi podawaj po przecinku, UWAGA MOŻE ZAJĄĆ BARDZO DUŻO CZASU!):", variable=self.is_tagging).grid(column=0, row=0)
         self.tags_text = tk.Text(self.step4_frame, width=80, height=10, wrap='word')
         self.tags_text.grid(ipady=3, row=1, column=0, rowspan=4)
@@ -262,11 +264,13 @@ class App:
         self.step5_frame = ttk.Frame(self.master)
         self.step5_frame.pack()
         self.step5_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step5_frame, text="Wybierz opcje dodatkowe:").pack()
+        ttk.Label(self.step5_frame, font=("Arial",20),text="Wybierz opcje dodatkowe:").pack()
+        style = ttk.Style()
+        style.configure('TCheckbutton', font=('Arial', 20))
         self.summarize_var = tk.BooleanVar()
         self.sentiment_var = tk.BooleanVar()
         self.spam_filter = tk.BooleanVar()
-        ttk.Checkbutton(self.step5_frame, text="Użyj filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
+        ttk.Checkbutton(self.step5_frame,text="Użyj filtra spamu (ZALECANE)", variable=self.spam_filter).pack(pady=5)
         ttk.Checkbutton(self.step5_frame, text="Użyj streszczania dłuższych opinii (UWAGA MOŻE ZAJĄĆ BARDZO DUŻO CZASU!)", variable=self.summarize_var).pack(pady=5)
         ttk.Checkbutton(self.step5_frame, text="Sprawdź sentyment", variable=self.sentiment_var).pack(pady=5)
 
@@ -275,18 +279,20 @@ class App:
 
 
     def create_step6(self):
+        print('czy tagi:',self.is_tagging.get())
+        print('czy sentyment:',self.sentiment_var.get())
         self.step6_frame = ttk.Frame(self.master)
         self.step6_frame.pack()
         self.step6_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         from Modules.scraper import get_steam_reviews
-        ttk.Label(self.step6_frame, text='Trwa pobieranie opinii').grid(column=0,row=0,columnspan=2)
+        ttk.Label(self.step6_frame, font=('Arial', 20),text='Trwa pobieranie opinii').grid(column=0,row=0,columnspan=2)
         pb = ttk.Progressbar(self.step6_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
 
         total = sum(int(value) for value in self.entries.values())
         total_var = tk.StringVar(self.step6_frame, value="Pozostały czas: ")
 
-        ttk.Label(self.step6_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        ttk.Label(self.step6_frame, font=('Arial', 20),textvariable=total_var).grid(column=0,row=2,columnspan=2)
         total_time = 0.0
         
         
@@ -349,17 +355,17 @@ class App:
         self.step7_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         from Modules.translator import translate_content
         file_location = f'{self.file_path}/output.xlsx'
-        ttk.Label(self.step7_frame, text='Trwa tłumaczenie opinii').grid(column=0,row=0,columnspan=2)
+        ttk.Label(self.step7_frame, font=('Arial', 20),text='Trwa tłumaczenie opinii').grid(column=0,row=0,columnspan=2)
         pb = ttk.Progressbar(self.step7_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
 
         total_var = tk.StringVar(self.step7_frame, value="Pozostały czas: ")
 
-        ttk.Label(self.step7_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        ttk.Label(self.step7_frame, font=('Arial', 20),textvariable=total_var).grid(column=0,row=2,columnspan=2)
 
         done = tk.StringVar(self.step7_frame, value=" ")
 
-        ttk.Label(self.step7_frame, textvariable=done).grid(column=0,row=3,columnspan=2)
+        ttk.Label(self.step7_frame, font=('Arial', 20),textvariable=done).grid(column=0,row=3,columnspan=2)
         total_time = 0.0
 
         df = pd.read_excel(file_location)
@@ -417,7 +423,7 @@ class App:
         self.threads_done = 0
         file_location = f'{self.file_path}/output.xlsx'
         self.step8_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step8_frame, text='Trwa odrzucanie spamu').grid(column=0,row=0,columnspan=2)
+        ttk.Label(self.step8_frame, font=('Arial', 20),text='Trwa odrzucanie spamu').grid(column=0,row=0,columnspan=2)
         pb = ttk.Progressbar(self.step8_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
         from Modules.API import spam_remover
@@ -427,7 +433,7 @@ class App:
 
         total_var = tk.StringVar(self.step8_frame, value="Pozostały czas: ")
 
-        ttk.Label(self.step8_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        ttk.Label(self.step8_frame, font=('Arial', 20),textvariable=total_var).grid(column=0,row=2,columnspan=2)
         total_time = 0.0
 
         def update_progressbar(value, time):
@@ -471,7 +477,7 @@ class App:
         from Modules.API import sentiment
         file_location = f'{self.file_path}/output.xlsx'
         self.step9_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step9_frame, text='Trwa sprawdzanie sentymentu').grid(column=0,row=0,columnspan=2)
+        ttk.Label(self.step9_frame, font=('Arial', 20),text='Trwa sprawdzanie sentymentu').grid(column=0,row=0,columnspan=2)
         pb = ttk.Progressbar(self.step9_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
 
@@ -524,7 +530,7 @@ class App:
         from Modules.API import summary
         file_location = f'{self.file_path}/output.xlsx'
         self.step10_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step10_frame, text='Trwa streszczanie opinii dłużych niż 300 znaków').grid(column=0,row=0,columnspan=2)
+        ttk.Label(self.step10_frame, font=('Arial', 20),text='Trwa streszczanie opinii dłużych niż 300 znaków').grid(column=0,row=0,columnspan=2)
         pb = ttk.Progressbar(self.step10_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
 
@@ -532,11 +538,11 @@ class App:
         threads =[]
 
         total_var = tk.StringVar(self.step10_frame, value="Pozostały czas: ")
-        ttk.Label(self.step10_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        ttk.Label(self.step10_frame, font=('Arial', 20),textvariable=total_var).grid(column=0,row=2,columnspan=2)
 
         done = tk.StringVar(self.step10_frame, value=" ")
 
-        ttk.Label(self.step10_frame, textvariable=done).grid(column=0,row=3,columnspan=2)
+        ttk.Label(self.step10_frame, font=('Arial', 20),textvariable=done).grid(column=0,row=3,columnspan=2)
         total_time = 0.0
 
         df = pd.read_excel(file_location)
@@ -585,7 +591,7 @@ class App:
         from Modules.API import tagger
         file_location = f'{self.file_path}/output.xlsx'
         self.step11_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step11_frame, text='Trwa przeszukiwanie treści w poszkiwaniu tagów').grid(column=0,row=0,columnspan=2)
+        ttk.Label(self.step11_frame, font=('Arial', 20),text='Trwa przeszukiwanie treści w poszkiwaniu tagów').grid(column=0,row=0,columnspan=2)
         pb = ttk.Progressbar(self.step11_frame, orient="horizontal", mode="determinate", length=280)
         pb.grid(column=0, row=1, columnspan=2, padx=10, pady=20)
 
@@ -594,7 +600,7 @@ class App:
 
         total_var = tk.StringVar(self.step11_frame, value="Pozostały czas: ")
 
-        ttk.Label(self.step11_frame, textvariable=total_var).grid(column=0,row=2,columnspan=2)
+        ttk.Label(self.step11_frame, font=('Arial', 20),textvariable=total_var).grid(column=0,row=2,columnspan=2)
         total_time = 0.0
 
         def update_progressbar(value, time):
@@ -635,9 +641,37 @@ class App:
     def create_step12(self):
         self.step12_frame = ttk.Frame(self.master)
         self.step12_frame.pack()
+        self.threads_done = 0
+        from Modules.API import reporter
+        file_location = f'{self.file_path}/output.xlsx'
         self.step12_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        ttk.Label(self.step12_frame, text='Koniec').grid(column=0,row=0,columnspan=2)
-           
+        ttk.Label(self.step12_frame, font=('Arial', 20),text='Trwa tworzenie raportu').grid(column=0,row=0,columnspan=2)
+
+        threads =[]
+        t = threading.Thread(target=reporter, args=(file_location,self.file_path,self.is_tagging.get(),self.sentiment_var.get()))
+        t.start()
+        threads.append(t)
+        
+
+        def check_threads():
+            print(t.is_alive())
+            if all(not t.is_alive() for t in threads) :
+                self.threads_done = 1
+                print('aaaaaaaaa')
+                self.next_step()
+            else:
+                print('bbbbbbbbb')
+                self.master.after(1000, check_threads)
+        check_threads()
+                
+
+
+    def create_step13(self):
+        self.step13_frame = ttk.Frame(self.master)
+        self.step13_frame.pack()
+        self.step13_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        ttk.Label(self.step13_frame, font=('Arial', 20),text='KONIEC').grid(column=0,row=0,columnspan=2)
+
 
     def next_step(self):
         if self.step == 1:
@@ -673,14 +707,18 @@ class App:
 
         elif self.step == 3:
             languages_with_more_than_0 = {}
-            for name,amount in self.entries.items():
-                if type(amount) != int and amount.get() != 0:
-                    languages_with_more_than_0[name] = amount.get()
+            for name, entry in self.entries.items():
+                # Assuming self.entries is a dictionary where values are Entry widgets
+                amount = entry.get()
+                if amount and amount.isdigit():  # Check if amount is a non-empty string representing an integer
+                    languages_with_more_than_0[name] = int(amount)
+            
             print(languages_with_more_than_0)
             self.entries = languages_with_more_than_0
             self.step3_frame.destroy()
             self.create_step4()
             self.step += 1
+
 
         elif self.step == 4:
             if self.is_tagging.get() == 1:
@@ -750,6 +788,7 @@ class App:
             
 
         elif self.step == 10:
+            print('teraz jest krok:', self.step, 'tagowanie')
             if hasattr(self, 'step10_frame'):
                 self.step10_frame.destroy()
             if self.is_tagging.get():
@@ -759,11 +798,20 @@ class App:
                 self.step += 1
                 self.next_step()
             
-        
         elif self.step == 11:
+            print('teraz jest krok:', self.step)
             if hasattr(self, 'step11_frame'):
                 self.step11_frame.destroy()
+            self.step += 1
             self.create_step12()
+
+        elif self.step == 12:
+            print('teraz jest krok:', self.step)
+            if hasattr(self, 'step12_frame'):
+                self.step12_frame.destroy()
+            self.step += 1
+            self.create_step13()
+
           
     def prev_step(self):
         if self.step == 2:
@@ -785,6 +833,7 @@ class App:
 
 root = tk.Tk()
 root.minsize(width=1280, height=720)
-style = Style(theme="darkly")
+#style = Style(theme="darkly")
+root.configure( background='white')
 app = App(root)
 root.mainloop()
