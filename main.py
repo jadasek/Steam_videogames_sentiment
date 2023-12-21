@@ -28,8 +28,8 @@ dname = os.path.dirname(abspath)
 print(f'dname: {dname}')
 os.chdir(dname)
 
-#sys.stderr = open('error.txt', 'w')
-#sys.stdout = open('output.txt', 'w')
+sys.stderr = open('error.txt', 'w')
+sys.stdout = open('output.txt', 'w')
 
 def find_key_by_value(dictionary, value):
     for key, val in dictionary.items():
@@ -663,8 +663,7 @@ class App:
                 print('bbbbbbbbb')
                 self.master.after(1000, check_threads)
         check_threads()
-                
-
+            
 
     def create_step13(self):
         self.step13_frame = ttk.Frame(self.master)
@@ -709,9 +708,13 @@ class App:
             languages_with_more_than_0 = {}
             for name, entry in self.entries.items():
                 # Assuming self.entries is a dictionary where values are Entry widgets
-                amount = entry.get()
-                if amount and amount.isdigit():  # Check if amount is a non-empty string representing an integer
-                    languages_with_more_than_0[name] = int(amount)
+                try:
+                    amount = entry.get()
+                    if amount and amount.isdigit():  # Check if amount is a non-empty string representing an integer
+                        languages_with_more_than_0[name] = int(amount)
+                except:
+                    pass
+
             
             print(languages_with_more_than_0)
             self.entries = languages_with_more_than_0

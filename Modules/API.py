@@ -23,7 +23,7 @@ def spam_remover(df,queue,callback,total):
         "distilbert-base-uncased", num_labels=2
     )
 
-    print(os.getcwd())
+    print('LOK:',dname)
     new_model.load_weights(f"{dname}\spam.h5")
     rows_to_remove = []
 
@@ -250,17 +250,17 @@ def reporter(file_location, path,is_tagging,is_sentiment):
     if is_sentiment == True:
         matplotlib.use('agg')
         print('sentymuje')
-        # Function to add numeric annotations on top of each bar
         def add_numeric_annotations(ax):
             for bar in ax:
                 yval = bar.get_height()
                 plt.text(bar.get_x() + bar.get_width() / 2, yval + 0.1, round(yval, 1),
                         ha='center', va='bottom')
 
-        # Read the Excel file
-        df = pd.read_excel(file_location, parse_dates=["date"])
 
-        # Determine the appropriate time interval
+        df = pd.read_excel(file_location)
+        df['date'] = pd.to_datetime(df['date'])
+        df = df.dropna(subset=['date'])
+
         date_range = df["date"].max() - df["date"].min()
         if date_range.days > 180:
             time_interval = "M"
@@ -268,32 +268,28 @@ def reporter(file_location, path,is_tagging,is_sentiment):
             time_interval = "W"
         else:
             time_interval = "D"
+        df_resampled = df.set_index("date").resample(time_interval).mean(numeric_only=True)
 
-        # Resample data based on the determined time interval
-        df_resampled = df.set_index("date").resample(time_interval).mean()
-
-        # Visualization: Line chart for sentiment value over time
         plt.figure(figsize=(15,10))
         plt.plot(df_resampled.index, df_resampled["sentiment_value"], marker='o')
         plt.ylim(0, 1)
         plt.title("Zmiana sentymentu w czasie")
         plt.xlabel("Data")
         plt.ylabel("Wartość sentymentu")
-        plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=6))  # Adjust the number of x-axis ticks
-        plt.gca().xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))  # Format x-axis dates
+        plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=6))  
+        plt.gca().xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))  
         plt.grid(True)
         plt.savefig(f"{path}/sentiment_over_time.png")
         plt.close()
 
-        # Sentiment Distribution Bar Chart
         sentiment_distribution = df["predicted_sentiment"].value_counts()
         plt.figure(figsize=(10, 6))
         ax_sentiment_distribution = sentiment_distribution.plot(kind='bar', color='skyblue')
         plt.title("Rozkład sentymentu")
         plt.xlabel("Sentyment")
         plt.ylabel("Liczba opinii")
-        plt.xticks(rotation=0)  # Rotate x-axis labels
-        add_numeric_annotations(ax_sentiment_distribution.patches)  # Add numeric annotations
+        plt.xticks(rotation=0)  
+        add_numeric_annotations(ax_sentiment_distribution.patches) 
         plt.savefig(f"{path}/sentiment_distribution_bar_chart.png")
         plt.close()
         if is_tagging == True:
@@ -305,8 +301,8 @@ def reporter(file_location, path,is_tagging,is_sentiment):
                     for tag in tags_list:
                         tag_counts[tag] = tag_counts.get(tag, 0) + 1
 
-            # Create a bar chart for tag occurrences
-            plt.figure(figsize=(12, 8))  # Increase the figure size
+
+            plt.figure(figsize=(12, 8))  
             ax_tag_occurrences = plt.bar(tag_counts.keys(), tag_counts.values(), color='skyblue')
             plt.title("Występowanie tagów")
             plt.xlabel("Tag")
@@ -317,11 +313,10 @@ def reporter(file_location, path,is_tagging,is_sentiment):
             plt.savefig(f"{path}/tag_occurrences.png")
             plt.close()
 
-        # Create a PDF report
-        pdf_filename = f"{path}/raport.pdf"
-        c = canvas.Canvas(pdf_filename, pagesize=landscape(A4))  # Set landscape orientation
 
-        # Title - Page 1
+        pdf_filename = f"{path}/raport.pdf"
+        c = canvas.Canvas(pdf_filename, pagesize=landscape(A4))  
+
         c.setFont("Helvetica", 16)
         c.drawString(100, 750, "Raport")
         opinions_count = len(df)
@@ -329,7 +324,7 @@ def reporter(file_location, path,is_tagging,is_sentiment):
         last_date = df["date"].max()
         average_sentiment = df['sentiment_value'].mean()
 
-        # Table - Page 2
+
         data = [
             ["Liczba opinii", opinions_count],
             ["Zakres dat", f"{first_date.strftime('%d.%m.%Y')} do {last_date.strftime('%d.%m.%Y')}"],
@@ -346,27 +341,22 @@ def reporter(file_location, path,is_tagging,is_sentiment):
         table.wrapOn(c, 500, 400)
         table.drawOn(c, 280, 300)
 
-        # Page break before the next chart
+
         c.showPage()
 
-        # Sentiment Over Time Chart - Page 2
         c.setFont("Helvetica", 14)
         c.drawString(100, 750, "Zmiana sentymentu w czasie")
-        c.drawImage(f"{path}/sentiment_over_time.png", 50, 100, width=750, height=400)  # Adjust position and size
+        c.drawImage(f"{path}/sentiment_over_time.png", 50, 100, width=750, height=400) 
         c.showPage()
 
-        # Sentiment Distribution Bar Chart - Page 3
         c.setFont("Helvetica", 14)
         c.drawString(100, 750, "Summary Sentiment Distribution")
-        c.drawImage(f"{path}/sentiment_distribution_bar_chart.png", 50, 100, width=750, height=400)  # Adjust position and size
+        c.drawImage(f"{path}/sentiment_distribution_bar_chart.png", 50, 100, width=750, height=400)  
         
         if is_tagging == True:
-            # Tag Occurrences Bar Chart - Page 4
             c.showPage()
             c.setFont("Helvetica", 14)
             c.drawString(100, 750, "Występowanie tagów w opiniach")
-            c.drawImage(f"{path}/tag_occurrences.png", 50, 100, width=750, height=400)  # Adjust position and size
+            c.drawImage(f"{path}/tag_occurrences.png", 50, 100, width=750, height=400)  
 
-        # Save the PDF
         c.save()
-        print('teoretycznie powinno zapisać')
